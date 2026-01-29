@@ -251,15 +251,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Close a file
-  function closeFile(filePath) {
+  async function closeFile(filePath) {
     if (!openFiles.has(filePath)) return;
 
     const fileData = openFiles.get(filePath);
+    const fileName = getFileName(filePath);
+
+    // Check for unsaved changes
     if (fileData.unsaved) {
-      // For now, just close without prompting - could add confirmation dialog
+      const result = await window.electronAPI.confirmCloseFile(fileName);
+
+      if (result === 0) {
+        // Save first, then close
+        await window.electronAPI.saveFile(filePath, fileData.content);
+      } else if (result === 2) {
+        // Cancel - don't close
+        return;
+      }
+      // result === 1 means Don't Save, continue to close
     }
 
     openFiles.delete(filePath);
+    window.electronAPI.notifyFileClosed(filePath);
 
     if (openFiles.size === 0) {
       // No more files open
@@ -268,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
       editorContainer.style.display = 'none';
       toggleGroup.style.display = 'none';
       fileNameSpan.textContent = '';
-      document.title = 'Markdown Viewer';
+      document.title = 'Markdown Editor';
       editor.value = '';
       contentDiv.innerHTML = '';
     } else if (filePath === activeFilePath) {
@@ -289,6 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileData.unsaved = true;
       saveBtn.disabled = false;
       fileNameSpan.textContent = getFileName(activeFilePath) + ' (unsaved)';
+      window.electronAPI.notifyFileUnsaved(activeFilePath, getFileName(activeFilePath));
       renderFileList();
       renderTabs();
     }
@@ -301,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileData.unsaved = false;
     saveBtn.disabled = true;
     fileNameSpan.textContent = getFileName(activeFilePath);
+    window.electronAPI.notifyFileSaved(activeFilePath);
     renderFileList();
     renderTabs();
   }
@@ -396,6 +411,18 @@ document.addEventListener('DOMContentLoaded', () => {
         window.electronAPI.saveFile(activeFilePath, fileData.content);
       }
     }
+  });
+
+  // Save all unsaved files and close
+  window.electronAPI.onSaveAllAndClose(async () => {
+    const savePromises = [];
+    openFiles.forEach((fileData, filePath) => {
+      if (fileData.unsaved) {
+        savePromises.push(window.electronAPI.saveFile(filePath, fileData.content));
+      }
+    });
+    await Promise.all(savePromises);
+    window.electronAPI.sendAllSavedClose();
   });
 
   // Keyboard shortcuts

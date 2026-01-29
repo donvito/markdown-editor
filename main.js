@@ -24,6 +24,37 @@ marked.setOptions({
 });
 
 let mainWindow;
+let unsavedFiles = new Map(); // Track unsaved files in main process
+let isQuitting = false;
+
+function handleClose() {
+  if (unsavedFiles.size === 0) {
+    return true; // Allow close
+  }
+
+  const fileNames = Array.from(unsavedFiles.values()).join(', ');
+  const result = dialog.showMessageBoxSync(mainWindow, {
+    type: 'warning',
+    buttons: ['Save', "Don't Save", 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    title: 'Unsaved Changes',
+    message: 'You have unsaved changes',
+    detail: `The following files have unsaved changes:\n${fileNames}\n\nDo you want to save before closing?`
+  });
+
+  if (result === 0) {
+    // Save - tell renderer to save all, then close
+    mainWindow.webContents.send('save-all-and-close');
+    return false; // Don't close yet, wait for save
+  } else if (result === 1) {
+    // Don't Save - clear unsaved and close
+    unsavedFiles.clear();
+    return true; // Allow close
+  }
+  // Cancel
+  return false;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -38,6 +69,17 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
+
+  // Handle window close with unsaved changes check
+  mainWindow.on('close', (e) => {
+    if (!isQuitting && unsavedFiles.size > 0) {
+      e.preventDefault();
+      if (handleClose()) {
+        isQuitting = true;
+        mainWindow.close();
+      }
+    }
+  });
 
   const menu = Menu.buildFromTemplate([
     {
@@ -57,7 +99,7 @@ function createWindow() {
         {
           label: 'Exit',
           accelerator: 'CmdOrCtrl+Q',
-          click: () => app.quit()
+          click: () => mainWindow.close()
         }
       ]
     },
@@ -120,7 +162,51 @@ ipcMain.handle('open-file-path', (event, filePath) => {
   }
 });
 
+// Show confirm dialog for closing unsaved file
+ipcMain.handle('confirm-close-file', (event, fileName) => {
+  const result = dialog.showMessageBoxSync(mainWindow, {
+    type: 'warning',
+    buttons: ['Save', "Don't Save", 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    title: 'Unsaved Changes',
+    message: `"${fileName}" has unsaved changes`,
+    detail: 'Do you want to save before closing?'
+  });
+  return result; // 0 = Save, 1 = Don't Save, 2 = Cancel
+});
+
+// Track unsaved file state
+ipcMain.on('file-unsaved', (event, filePath, fileName) => {
+  unsavedFiles.set(filePath, fileName);
+});
+
+ipcMain.on('file-saved-state', (event, filePath) => {
+  unsavedFiles.delete(filePath);
+});
+
+ipcMain.on('file-closed', (event, filePath) => {
+  unsavedFiles.delete(filePath);
+});
+
+ipcMain.on('all-saved-close', () => {
+  unsavedFiles.clear();
+  isQuitting = true;
+  mainWindow.close();
+});
+
 app.whenReady().then(createWindow);
+
+// Handle app quit with unsaved changes check
+app.on('before-quit', (e) => {
+  if (!isQuitting && unsavedFiles.size > 0) {
+    e.preventDefault();
+    if (handleClose()) {
+      isQuitting = true;
+      app.quit();
+    }
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
