@@ -2,6 +2,9 @@
 
 A simple and lightweight Markdown editor for Windows and Mac
 
+If you like this project, please consider supporting it
+[![Support the project](https://img.shields.io/badge/☕_Support_the_project-ffdd00?style=flat&logoColor=black)](https://buymeacoffee.com/donvitocodes)
+
 ## Screenshots
 
 ### Light Mode
