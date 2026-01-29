@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Marked } = require('marked');
@@ -147,6 +147,10 @@ async function openFile() {
 
 // IPC Handlers
 ipcMain.handle('open-file-dialog', openFile);
+
+ipcMain.handle('open-external', (event, url) => {
+  shell.openExternal(url);
+});
 
 ipcMain.handle('parse-markdown', (event, content) => {
   return marked.parse(content);

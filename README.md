@@ -1,6 +1,6 @@
 # Markdown Editor
 
-A simple Markdown viewer and editor for Mac, Windows and Linux, built with Electron.
+A simple and lightweight Markdown editor for Windows and Mac
 
 ## Features
 

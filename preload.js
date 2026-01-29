@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendAllSavedClose: () => ipcRenderer.send('all-saved-close'),
   notifyFileUnsaved: (filePath, fileName) => ipcRenderer.send('file-unsaved', filePath, fileName),
   notifyFileSaved: (filePath) => ipcRenderer.send('file-saved-state', filePath),
-  notifyFileClosed: (filePath) => ipcRenderer.send('file-closed', filePath)
+  notifyFileClosed: (filePath) => ipcRenderer.send('file-closed', filePath),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });

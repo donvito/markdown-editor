@@ -30,13 +30,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
 
   // Initialize theme
+  const lightIcon = themeToggle.querySelector('.light-icon');
+  const darkIcon = themeToggle.querySelector('.dark-icon');
+
   function initTheme() {
     if (isDarkMode) {
       document.body.classList.add('dark');
-      themeToggle.textContent = 'Light';
+      lightIcon.classList.remove('active');
+      darkIcon.classList.add('active');
     } else {
       document.body.classList.remove('dark');
-      themeToggle.textContent = 'Dark';
+      lightIcon.classList.add('active');
+      darkIcon.classList.remove('active');
     }
   }
 
@@ -477,6 +482,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const newBtn = document.getElementById('new-btn');
   newBtn.addEventListener('click', () => {
     newFile();
+  });
+
+  // Donate link
+  const donateLink = document.getElementById('donate-link');
+  donateLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.electronAPI.openExternal('https://buymeacoffee.com/donvitocodes');
   });
 
   // Open button
