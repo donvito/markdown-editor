@@ -41,7 +41,7 @@
     "marked-highlight": "^2.1.0"
   },
   "devDependencies": {
-    "electron": "^29.0.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^40.1.0",
+    "electron-builder": "^26.6.0"
   }
 }
