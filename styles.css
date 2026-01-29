@@ -1,0 +1,490 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: #f5f5f5;
+  color: #333;
+  line-height: 1.6;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #444;
+  margin-right: 8px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar button {
+  padding: 6px 12px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.toolbar button:hover:not(:disabled) {
+  background-color: #0052a3;
+}
+
+.toolbar button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.toggle-group {
+  display: flex;
+  margin-left: 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.toggle-btn {
+  padding: 6px 14px !important;
+  background-color: #f5f5f5 !important;
+  color: #555 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  border-right: 1px solid #ddd !important;
+  font-size: 13px;
+}
+
+.toggle-btn:last-child {
+  border-right: none !important;
+}
+
+.toggle-btn:hover {
+  background-color: #e8e8e8 !important;
+}
+
+.toggle-btn.active {
+  background-color: #0066cc !important;
+  color: white !important;
+}
+
+#file-name {
+  color: #666;
+  font-size: 13px;
+  margin-left: auto;
+}
+
+main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: #888;
+  text-align: center;
+}
+
+.welcome p {
+  margin: 8px 0;
+}
+
+.welcome kbd {
+  background-color: #e8e8e8;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+/* Editor Container */
+.editor-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.editor-container.split-view .pane {
+  width: 50%;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.editor-pane {
+  border-right: 1px solid #e0e0e0;
+}
+
+.editor-pane textarea {
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background-color: #fafafa;
+  color: #333;
+}
+
+.editor-pane textarea:focus {
+  background-color: #fff;
+}
+
+.preview-pane {
+  overflow-y: auto;
+  background-color: #f5f5f5;
+}
+
+#content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px;
+  background-color: #fff;
+  min-height: 100%;
+}
+
+.split-view #content {
+  margin: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: calc(100% - 40px);
+}
+
+/* Markdown content styles */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body h1:first-child,
+.markdown-body h2:first-child,
+.markdown-body h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-body h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #eaecef;
+}
+
+.markdown-body h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #eaecef;
+}
+
+.markdown-body h3 {
+  font-size: 1.25em;
+}
+
+.markdown-body h4 {
+  font-size: 1em;
+}
+
+.markdown-body p {
+  margin-bottom: 16px;
+}
+
+.markdown-body a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin-bottom: 16px;
+  padding-left: 2em;
+}
+
+.markdown-body li {
+  margin-bottom: 4px;
+}
+
+.markdown-body code {
+  background-color: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 85%;
+}
+
+.markdown-body pre {
+  background-color: #f6f8fa;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 100%;
+}
+
+.markdown-body blockquote {
+  margin: 0 0 16px 0;
+  padding: 0 16px;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border: 1px solid #dfe2e5;
+  padding: 8px 12px;
+}
+
+.markdown-body table th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+.markdown-body table tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid #eaecef;
+  margin: 24px 0;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  padding: 6px 12px;
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.theme-toggle:hover {
+  background-color: #555;
+}
+
+/* Dark Mode Styles */
+body.dark {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+body.dark .container {
+  background-color: #1a1a1a;
+}
+
+body.dark header {
+  background-color: #252525;
+  border-bottom-color: #333;
+}
+
+body.dark header h1 {
+  color: #e0e0e0;
+}
+
+body.dark .toolbar button {
+  background-color: #0077dd;
+}
+
+body.dark .toolbar button:hover:not(:disabled) {
+  background-color: #0066cc;
+}
+
+body.dark .toolbar button:disabled {
+  background-color: #444;
+  color: #777;
+}
+
+body.dark .toggle-group {
+  border-color: #444;
+}
+
+body.dark .toggle-btn {
+  background-color: #333 !important;
+  color: #ccc !important;
+  border-right-color: #444 !important;
+}
+
+body.dark .toggle-btn:hover {
+  background-color: #444 !important;
+}
+
+body.dark .toggle-btn.active {
+  background-color: #0077dd !important;
+  color: white !important;
+}
+
+body.dark #file-name {
+  color: #999;
+}
+
+body.dark .theme-toggle {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+body.dark .theme-toggle:hover {
+  background-color: #fff;
+}
+
+body.dark .welcome {
+  color: #777;
+}
+
+body.dark .welcome kbd {
+  background-color: #333;
+  border-color: #444;
+  color: #ccc;
+}
+
+body.dark .editor-pane {
+  border-right-color: #333;
+}
+
+body.dark .editor-pane textarea {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+body.dark .editor-pane textarea:focus {
+  background-color: #252525;
+}
+
+body.dark .preview-pane {
+  background-color: #1a1a1a;
+}
+
+body.dark #content {
+  background-color: #252525;
+}
+
+body.dark .split-view #content {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode markdown styles */
+body.dark .markdown-body h1,
+body.dark .markdown-body h2 {
+  border-bottom-color: #444;
+}
+
+body.dark .markdown-body a {
+  color: #58a6ff;
+}
+
+body.dark .markdown-body code {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+body.dark .markdown-body pre {
+  background-color: #1e1e1e;
+}
+
+body.dark .markdown-body blockquote {
+  border-left-color: #444;
+  color: #999;
+}
+
+body.dark .markdown-body table th,
+body.dark .markdown-body table td {
+  border-color: #444;
+}
+
+body.dark .markdown-body table th {
+  background-color: #333;
+}
+
+body.dark .markdown-body table tr:nth-child(even) {
+  background-color: #2a2a2a;
+}
+
+body.dark .markdown-body hr {
+  border-top-color: #444;
+}
+
+/* Drag and drop overlay */
+body.drag-over::after {
+  content: 'Drop markdown file here';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 102, 204, 0.9);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+body.dark.drag-over::after {
+  background-color: rgba(0, 119, 221, 0.9);
+}

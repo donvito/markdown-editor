@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+  <title>Markdown Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Markdown Viewer</h1>
+      <div class="toolbar">
+        <button id="open-btn">Open</button>
+        <button id="save-btn" disabled>Save</button>
+        <div class="toggle-group" id="toggle-group" style="display: none;">
+          <button id="edit-btn" class="toggle-btn">Edit</button>
+          <button id="preview-btn" class="toggle-btn active">Preview</button>
+          <button id="split-btn" class="toggle-btn">Split</button>
+        </div>
+      </div>
+      <span id="file-name"></span>
+      <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode">Dark</button>
+    </header>
+    <main>
+      <div id="welcome" class="welcome">
+        <p>Welcome to Markdown Viewer</p>
+        <p>Press <kbd>Ctrl+O</kbd> or click "Open" to load a markdown file</p>
+      </div>
+      <div id="editor-container" class="editor-container" style="display: none;">
+        <div id="editor-pane" class="pane editor-pane" style="display: none;">
+          <textarea id="editor" spellcheck="false"></textarea>
+        </div>
+        <div id="preview-pane" class="pane preview-pane">
+          <div id="content" class="markdown-body"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
