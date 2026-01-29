@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Multi-file state management
   let openFiles = new Map(); // Map of filePath -> { content, unsaved, cursorPos, scrollPos }
   let activeFilePath = null;
+  let untitledCounter = 1;
   let isDarkMode = localStorage.getItem('darkMode') === 'true';
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -157,6 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getFileName(filePath) {
+    if (filePath.startsWith('untitled:')) {
+      const fileData = openFiles.get(filePath);
+      return fileData?.untitledName || 'Untitled.md';
+    }
     return filePath.split(/[/\\]/).pop();
   }
 
@@ -342,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fileName = getFileName(filePath);
     fileNameSpan.textContent = fileName;
-    document.title = `${fileName} - Markdown Viewer`;
+    document.title = `${fileName} - Markdown Editor`;
 
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
@@ -359,6 +364,56 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCursorPosition();
     renderFileList();
     renderTabs();
+  }
+
+  function newFile() {
+    // Save current file state before creating new file
+    saveCurrentFileState();
+
+    // Create untitled file path
+    const untitledPath = `untitled:${untitledCounter}`;
+    const fileName = `Untitled-${untitledCounter}.md`;
+    untitledCounter++;
+
+    // Add new file to open files
+    openFiles.set(untitledPath, {
+      content: '',
+      unsaved: true,
+      cursorPos: 0,
+      scrollPos: 0,
+      isUntitled: true,
+      untitledName: fileName
+    });
+
+    activeFilePath = untitledPath;
+
+    fileNameSpan.textContent = fileName + ' (unsaved)';
+    document.title = `${fileName} - Markdown Editor`;
+
+    welcomeDiv.style.display = 'none';
+    editorContainer.style.display = 'flex';
+    toggleGroup.style.display = 'flex';
+    setViewMode('split');
+
+    editor.value = '';
+    editor.selectionStart = 0;
+    editor.selectionEnd = 0;
+    editor.scrollTop = 0;
+    saveBtn.disabled = false;
+
+    window.electronAPI.notifyFileUnsaved(untitledPath, fileName);
+
+    updatePreview();
+    updateLineNumbers();
+    updateCursorPosition();
+    renderFileList();
+    renderTabs();
+
+    editor.focus();
+  }
+
+  function isUntitledFile(filePath) {
+    return filePath && filePath.startsWith('untitled:');
   }
 
   // Editor input handler with debounced preview update
@@ -380,20 +435,69 @@ document.addEventListener('DOMContentLoaded', () => {
   previewBtn.addEventListener('click', () => setViewMode('preview'));
   splitBtn.addEventListener('click', () => setViewMode('split'));
 
+  // New button
+  const newBtn = document.getElementById('new-btn');
+  newBtn.addEventListener('click', () => {
+    newFile();
+  });
+
   // Open button
   openBtn.addEventListener('click', () => {
     window.electronAPI.openFile();
   });
 
   // Save button
-  saveBtn.addEventListener('click', () => {
-    if (activeFilePath && openFiles.has(activeFilePath)) {
-      const fileData = openFiles.get(activeFilePath);
-      if (fileData.unsaved) {
-        window.electronAPI.saveFile(activeFilePath, fileData.content);
-      }
-    }
+  saveBtn.addEventListener('click', async () => {
+    await saveCurrentFile();
   });
+
+  async function saveCurrentFile() {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) return;
+
+    const fileData = openFiles.get(activeFilePath);
+    if (!fileData.unsaved) return;
+
+    if (isUntitledFile(activeFilePath)) {
+      await saveFileAs();
+    } else {
+      await window.electronAPI.saveFile(activeFilePath, fileData.content);
+    }
+  }
+
+  async function saveFileAs() {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) return;
+
+    const fileData = openFiles.get(activeFilePath);
+    const defaultName = isUntitledFile(activeFilePath)
+      ? fileData.untitledName
+      : getFileName(activeFilePath);
+
+    const result = await window.electronAPI.saveFileAs(fileData.content, defaultName);
+
+    if (result.success && result.filePath) {
+      // Remove old entry
+      const oldPath = activeFilePath;
+      window.electronAPI.notifyFileClosed(oldPath);
+      openFiles.delete(oldPath);
+
+      // Add with new path
+      openFiles.set(result.filePath, {
+        content: fileData.content,
+        unsaved: false,
+        cursorPos: fileData.cursorPos,
+        scrollPos: fileData.scrollPos
+      });
+
+      activeFilePath = result.filePath;
+      const fileName = getFileName(result.filePath);
+      fileNameSpan.textContent = fileName;
+      document.title = `${fileName} - Markdown Editor`;
+      saveBtn.disabled = true;
+
+      renderFileList();
+      renderTabs();
+    }
+  }
 
   // IPC handlers
   window.electronAPI.onFileOpened((data) => {
@@ -404,20 +508,23 @@ document.addEventListener('DOMContentLoaded', () => {
     markSaved();
   });
 
-  window.electronAPI.onTriggerSave(() => {
-    if (activeFilePath && openFiles.has(activeFilePath)) {
-      const fileData = openFiles.get(activeFilePath);
-      if (fileData.unsaved) {
-        window.electronAPI.saveFile(activeFilePath, fileData.content);
-      }
-    }
+  window.electronAPI.onTriggerSave(async () => {
+    await saveCurrentFile();
+  });
+
+  window.electronAPI.onTriggerSaveAs(async () => {
+    await saveFileAs();
+  });
+
+  window.electronAPI.onNewFile(() => {
+    newFile();
   });
 
   // Save all unsaved files and close
   window.electronAPI.onSaveAllAndClose(async () => {
     const savePromises = [];
     openFiles.forEach((fileData, filePath) => {
-      if (fileData.unsaved) {
+      if (fileData.unsaved && !isUntitledFile(filePath)) {
         savePromises.push(window.electronAPI.saveFile(filePath, fileData.content));
       }
     });
@@ -427,14 +534,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
+    // Ctrl+S to save
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault();
-      if (activeFilePath && openFiles.has(activeFilePath)) {
-        const fileData = openFiles.get(activeFilePath);
-        if (fileData.unsaved) {
-          window.electronAPI.saveFile(activeFilePath, fileData.content);
-        }
-      }
+      saveCurrentFile();
     }
     // Ctrl+W to close current tab
     if (e.ctrlKey && e.key === 'w') {

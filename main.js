@@ -86,6 +86,11 @@ function createWindow() {
       label: 'File',
       submenu: [
         {
+          label: 'New File',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => mainWindow.webContents.send('new-file')
+        },
+        {
           label: 'Open File',
           accelerator: 'CmdOrCtrl+O',
           click: openFile
@@ -94,6 +99,11 @@ function createWindow() {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: () => mainWindow.webContents.send('trigger-save')
+        },
+        {
+          label: 'Save As...',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => mainWindow.webContents.send('trigger-save-as')
         },
         { type: 'separator' },
         {
@@ -146,7 +156,29 @@ ipcMain.handle('save-file', (event, filePath, content) => {
   try {
     fs.writeFileSync(filePath, content, 'utf-8');
     mainWindow.webContents.send('file-saved');
-    return { success: true };
+    return { success: true, filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('save-file-as', async (event, content, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultName || 'untitled.md',
+    filters: [
+      { name: 'Markdown Files', extensions: ['md', 'markdown'] },
+      { name: 'Text Files', extensions: ['txt'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled) {
+    return { success: false, canceled: true };
+  }
+
+  try {
+    fs.writeFileSync(result.filePath, content, 'utf-8');
+    return { success: true, filePath: result.filePath };
   } catch (error) {
     return { success: false, error: error.message };
   }
