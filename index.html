@@ -30,7 +30,14 @@
       </div>
       <div id="editor-container" class="editor-container" style="display: none;">
         <div id="editor-pane" class="pane editor-pane" style="display: none;">
-          <textarea id="editor" spellcheck="false"></textarea>
+          <div class="editor-wrapper">
+            <div id="line-numbers" class="line-numbers"><span>1</span></div>
+            <textarea id="editor" spellcheck="false"></textarea>
+          </div>
+          <div class="status-bar">
+            <button id="toggle-line-numbers" class="status-btn" title="Toggle line numbers">Ln#</button>
+            <span id="cursor-position">Ln 1, Col 1</span>
+          </div>
         </div>
         <div id="preview-pane" class="pane preview-pane">
           <div id="content" class="markdown-body"></div>

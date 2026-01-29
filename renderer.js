@@ -13,11 +13,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const previewBtn = document.getElementById('preview-btn');
   const splitBtn = document.getElementById('split-btn');
   const themeToggle = document.getElementById('theme-toggle');
+  const lineNumbers = document.getElementById('line-numbers');
+  const cursorPosition = document.getElementById('cursor-position');
+  const toggleLineNumbersBtn = document.getElementById('toggle-line-numbers');
 
   let currentFilePath = null;
   let rawContent = '';
   let hasUnsavedChanges = false;
   let isDarkMode = localStorage.getItem('darkMode') === 'true';
+  let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
 
   // Initialize theme
   function initTheme() {
@@ -41,6 +45,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Theme toggle button
   themeToggle.addEventListener('click', toggleTheme);
+
+  // Line numbers functionality
+  function initLineNumbers() {
+    if (showLineNumbers) {
+      lineNumbers.classList.remove('hidden');
+      toggleLineNumbersBtn.classList.add('active');
+    } else {
+      lineNumbers.classList.add('hidden');
+      toggleLineNumbersBtn.classList.remove('active');
+    }
+  }
+
+  function updateLineNumbers() {
+    const lines = editor.value.split('\n').length;
+    const lineNumbersHtml = Array.from({ length: lines }, (_, i) => `<span>${i + 1}</span>`).join('');
+    lineNumbers.innerHTML = lineNumbersHtml;
+  }
+
+  function syncLineNumbersScroll() {
+    lineNumbers.scrollTop = editor.scrollTop;
+  }
+
+  function toggleLineNumbers() {
+    showLineNumbers = !showLineNumbers;
+    localStorage.setItem('showLineNumbers', showLineNumbers);
+    initLineNumbers();
+  }
+
+  // Cursor position tracking
+  function updateCursorPosition() {
+    const text = editor.value.substring(0, editor.selectionStart);
+    const lines = text.split('\n');
+    const line = lines.length;
+    const col = lines[lines.length - 1].length + 1;
+    cursorPosition.textContent = `Ln ${line}, Col ${col}`;
+  }
+
+  // Initialize line numbers
+  initLineNumbers();
+
+  // Line numbers toggle button
+  toggleLineNumbersBtn.addEventListener('click', toggleLineNumbers);
+
+  // Sync scroll
+  editor.addEventListener('scroll', syncLineNumbersScroll);
+
+  // Update cursor position on various events
+  editor.addEventListener('keyup', updateCursorPosition);
+  editor.addEventListener('click', updateCursorPosition);
+  editor.addEventListener('focus', updateCursorPosition);
 
   function setViewMode(mode) {
     // Remove active class from all toggle buttons
@@ -110,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     editor.value = content;
     updatePreview();
+    updateLineNumbers();
+    updateCursorPosition();
     markSaved();
   }
 
@@ -118,6 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
   editor.addEventListener('input', () => {
     rawContent = editor.value;
     markUnsaved();
+    updateLineNumbers();
+    updateCursorPosition();
 
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(updatePreview, 150);
