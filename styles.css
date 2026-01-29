@@ -170,6 +170,8 @@ main {
 .preview-pane {
   overflow-y: auto;
   background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
 }
 
 #content {
@@ -177,14 +179,13 @@ main {
   margin: 0 auto;
   padding: 40px;
   background-color: #fff;
-  min-height: 100%;
+  flex: 1;
 }
 
 .split-view #content {
   margin: 20px;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  min-height: calc(100% - 40px);
 }
 
 /* Markdown content styles */
