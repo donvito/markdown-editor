@@ -115,14 +115,18 @@ main {
 }
 
 .sidebar.collapsed {
-  width: 0;
-  min-width: 0;
-  overflow: hidden;
+  width: 36px;
+  min-width: 36px;
 }
 
 .sidebar.collapsed .sidebar-content,
 .sidebar.collapsed .sidebar-title {
   display: none;
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 10px 6px;
 }
 
 .sidebar-header {
@@ -437,12 +441,8 @@ main {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 14px;
   line-height: 1.6;
-  background-color: #fafafa;
-  color: #333;
-}
-
-.editor-pane textarea:focus {
   background-color: #fff;
+  color: #333;
 }
 
 .preview-pane {
@@ -684,12 +684,8 @@ body.dark .editor-pane {
 }
 
 body.dark .editor-pane textarea {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
-}
-
-body.dark .editor-pane textarea:focus {
   background-color: #252525;
+  color: #d4d4d4;
 }
 
 body.dark .line-numbers {

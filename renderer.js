@@ -166,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openFiles.forEach((fileData, filePath) => {
       const li = document.createElement('li');
       li.className = filePath === activeFilePath ? 'active' : '';
+      li.title = filePath;
       li.innerHTML = `
         <span class="file-icon">📄</span>
         <span class="file-name">${getFileName(filePath)}</span>
@@ -191,6 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openFiles.forEach((fileData, filePath) => {
       const tab = document.createElement('div');
       tab.className = `tab ${filePath === activeFilePath ? 'active' : ''}`;
+      tab.title = filePath;
       tab.innerHTML = `
         <span class="tab-name">${getFileName(filePath)}</span>
         ${fileData.unsaved ? '<span class="unsaved-indicator"></span>' : ''}
