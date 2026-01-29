@@ -1,7 +1,8 @@
 {
   "name": "markdown-editor",
+  "productName": "Markdown Editor",
   "version": "1.0.0",
-  "description": "A simple Markdown viewer and editor for Mac, Windows and Linux",
+  "description": "A simple Markdown editor for Mac, Windows and Linux",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
