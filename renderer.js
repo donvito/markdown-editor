@@ -97,14 +97,52 @@ document.addEventListener('DOMContentLoaded', () => {
     initLineNumbers();
   }
 
+  // Sync scrolling between editor and preview
+  let isEditorScrolling = false;
+  let isPreviewScrolling = false;
+
+  function syncEditorToPreview() {
+    if (isPreviewScrolling) return;
+    isEditorScrolling = true;
+
+    const editorScrollMax = editor.scrollHeight - editor.clientHeight;
+    if (editorScrollMax <= 0) return;
+
+    const editorScrollPercent = editor.scrollTop / editorScrollMax;
+    const previewScrollMax = previewPane.scrollHeight - previewPane.clientHeight;
+    previewPane.scrollTop = editorScrollPercent * previewScrollMax;
+
+    setTimeout(() => { isEditorScrolling = false; }, 50);
+  }
+
+  function syncPreviewToEditor() {
+    if (isEditorScrolling) return;
+    isPreviewScrolling = true;
+
+    const previewScrollMax = previewPane.scrollHeight - previewPane.clientHeight;
+    if (previewScrollMax <= 0) return;
+
+    const previewScrollPercent = previewPane.scrollTop / previewScrollMax;
+    const editorScrollMax = editor.scrollHeight - editor.clientHeight;
+    editor.scrollTop = previewScrollPercent * editorScrollMax;
+    syncLineNumbersScroll();
+
+    setTimeout(() => { isPreviewScrolling = false; }, 50);
+  }
+
   // Initialize line numbers
   initLineNumbers();
 
   // Line numbers toggle button
   toggleLineNumbersBtn.addEventListener('click', toggleLineNumbersVisibility);
 
-  // Sync scroll
-  editor.addEventListener('scroll', syncLineNumbersScroll);
+  // Sync scroll - line numbers and preview
+  editor.addEventListener('scroll', () => {
+    syncLineNumbersScroll();
+    syncEditorToPreview();
+  });
+
+  previewPane.addEventListener('scroll', syncPreviewToEditor);
 
   // Cursor position tracking
   function updateCursorPosition() {
