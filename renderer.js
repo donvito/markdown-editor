@@ -332,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
+    setViewMode('split');
 
     editor.value = content;
     editor.selectionStart = 0;
