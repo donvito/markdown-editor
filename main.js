@@ -116,12 +116,26 @@ function createWindow() {
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { role: 'resetZoom' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About Markdown Editor',
+              message: 'Markdown Editor',
+              detail: 'Version 1.0.0\n\nA simple and lightweight Markdown editor.\n\nAuthor: Melvin Vivas\nWebsite: donvitocodes.com',
+              buttons: ['OK']
+            });
+          }
+        }
       ]
     }
   ]);

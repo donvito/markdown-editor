@@ -2,6 +2,14 @@
 
 A simple and lightweight Markdown editor for Windows and Mac
 
+## Screenshots
+
+### Light Mode
+![Markdown Editor - Light Mode](images/markdown-editor-light.png)
+
+### Dark Mode
+![Markdown Editor - Dark Mode](images/markdown-editor-dark.png)
+
 ## Features
 
 - **Live Preview** - Real-time preview of Markdown content as you type
