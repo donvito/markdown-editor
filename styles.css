@@ -830,6 +830,55 @@ body.dark .markdown-body pre {
   background-color: #1e1e1e;
 }
 
+body.dark .markdown-body pre code {
+  background-color: transparent;
+}
+
+/* Dark mode syntax highlighting */
+body.dark .hljs {
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+body.dark .hljs-keyword,
+body.dark .hljs-selector-tag,
+body.dark .hljs-literal,
+body.dark .hljs-section,
+body.dark .hljs-link {
+  color: #569cd6;
+}
+body.dark .hljs-function .hljs-keyword {
+  color: #569cd6;
+}
+body.dark .hljs-string,
+body.dark .hljs-title,
+body.dark .hljs-name,
+body.dark .hljs-type,
+body.dark .hljs-attribute,
+body.dark .hljs-symbol,
+body.dark .hljs-bullet,
+body.dark .hljs-addition,
+body.dark .hljs-variable,
+body.dark .hljs-template-tag,
+body.dark .hljs-template-variable {
+  color: #ce9178;
+}
+body.dark .hljs-comment,
+body.dark .hljs-quote,
+body.dark .hljs-deletion,
+body.dark .hljs-meta {
+  color: #6a9955;
+}
+body.dark .hljs-number {
+  color: #b5cea8;
+}
+body.dark .hljs-built_in,
+body.dark .hljs-class .hljs-title {
+  color: #4ec9b0;
+}
+body.dark .hljs-attr {
+  color: #9cdcfe;
+}
+
 body.dark .markdown-body blockquote {
   border-left-color: #444;
   color: #999;

@@ -1,9 +1,23 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { marked } = require('marked');
+const { Marked } = require('marked');
+const { markedHighlight } = require('marked-highlight');
+const hljs = require('highlight.js');
 
-// Configure marked
+// Configure marked with syntax highlighting
+const marked = new Marked(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    }
+  })
+);
+
 marked.setOptions({
   gfm: true,
   breaks: true
