@@ -24,23 +24,37 @@
       <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode">Dark</button>
     </header>
     <main>
-      <div id="welcome" class="welcome">
-        <p>Welcome to Markdown Viewer</p>
-        <p>Press <kbd>Ctrl+O</kbd> or click "Open" to load a markdown file</p>
-      </div>
-      <div id="editor-container" class="editor-container" style="display: none;">
-        <div id="editor-pane" class="pane editor-pane" style="display: none;">
-          <div class="editor-wrapper">
-            <div id="line-numbers" class="line-numbers"><span>1</span></div>
-            <textarea id="editor" spellcheck="false"></textarea>
-          </div>
-          <div class="status-bar">
-            <button id="toggle-line-numbers" class="status-btn" title="Toggle line numbers">Ln#</button>
-            <span id="cursor-position">Ln 1, Col 1</span>
-          </div>
+      <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Open Files</span>
+          <button id="toggle-sidebar" class="sidebar-toggle" title="Collapse sidebar">◀</button>
         </div>
-        <div id="preview-pane" class="pane preview-pane">
-          <div id="content" class="markdown-body"></div>
+        <div class="sidebar-content">
+          <ul id="file-list" class="file-list"></ul>
+        </div>
+      </aside>
+      <div class="main-content">
+        <div id="welcome" class="welcome">
+          <p>Welcome to Markdown Viewer</p>
+          <p>Press <kbd>Ctrl+O</kbd> or click "Open" to load a markdown file</p>
+        </div>
+        <div id="editor-container" class="editor-container" style="display: none;">
+          <div id="tabs-bar" class="tabs-bar"></div>
+          <div class="editor-content">
+            <div id="editor-pane" class="pane editor-pane" style="display: none;">
+              <div class="editor-wrapper">
+                <div id="line-numbers" class="line-numbers"><span>1</span></div>
+                <textarea id="editor" spellcheck="false"></textarea>
+              </div>
+              <div class="status-bar">
+                <button id="toggle-line-numbers" class="status-btn" title="Toggle line numbers">Ln#</button>
+                <span id="cursor-position">Ln 1, Col 1</span>
+              </div>
+            </div>
+            <div id="preview-pane" class="pane preview-pane">
+              <div id="content" class="markdown-body"></div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
