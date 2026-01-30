@@ -740,6 +740,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.dispatchEvent(new CustomEvent('plugin:context-menu-action', { detail: data }));
   });
 
+  // Cmd/Ctrl+K shortcut for AI Generate with prompt
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+      document.dispatchEvent(new CustomEvent('plugin:context-menu-action', {
+        detail: {
+          pluginId: 'ai-editor',
+          actionId: 'generate',
+          selectedText,
+          selectionStart: editor.selectionStart,
+          selectionEnd: editor.selectionEnd
+        }
+      }));
+    }
+  });
+
   // Handle open settings
   window.electronAPI.onOpenSettings(() => {
     document.dispatchEvent(new CustomEvent('open-settings'));
@@ -955,6 +972,82 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       e.preventDefault();
       closeInlineDiff('reject');
+    }
+  });
+
+  // Inline Prompt Input handlers
+  const inlinePrompt = document.getElementById('inline-prompt');
+  const inlinePromptInput = document.getElementById('inline-prompt-input');
+  const inlinePromptSubmit = document.getElementById('inline-prompt-submit');
+  const inlinePromptClose = document.getElementById('inline-prompt-close');
+  let inlinePromptResolve = null;
+
+  function positionInlinePrompt() {
+    const editorRect = editor.getBoundingClientRect();
+
+    // Width similar to inline diff
+    const promptWidth = Math.min(550, Math.max(400, editorRect.width - 100));
+    inlinePrompt.style.width = promptWidth + 'px';
+
+    // Center horizontally relative to editor
+    let left = editorRect.left + (editorRect.width - promptWidth) / 2;
+    left = Math.max(20, Math.min(left, window.innerWidth - promptWidth - 20));
+    inlinePrompt.style.left = left + 'px';
+
+    // Position near top of editor
+    let top = editorRect.top + 60;
+    top = Math.max(60, Math.min(top, 100));
+    inlinePrompt.style.top = top + 'px';
+  }
+
+  function closeInlinePrompt(value) {
+    inlinePrompt.classList.add('hidden');
+    inlinePromptInput.value = '';
+    if (inlinePromptResolve) {
+      inlinePromptResolve(value);
+      inlinePromptResolve = null;
+    }
+  }
+
+  document.addEventListener('plugin:show-inline-prompt', (e) => {
+    const { placeholder, resolve } = e.detail;
+    inlinePromptInput.placeholder = placeholder || 'Edit selected text...';
+    inlinePromptResolve = resolve;
+    positionInlinePrompt();
+    inlinePrompt.classList.remove('hidden');
+    inlinePromptInput.focus();
+  });
+
+  inlinePromptSubmit.addEventListener('click', () => {
+    const value = inlinePromptInput.value.trim();
+    if (value) {
+      closeInlinePrompt(value);
+    }
+  });
+
+  inlinePromptClose.addEventListener('click', () => {
+    closeInlinePrompt(null);
+  });
+
+  // Auto-resize textarea as user types
+  inlinePromptInput.addEventListener('input', () => {
+    inlinePromptInput.style.height = 'auto';
+    inlinePromptInput.style.height = Math.min(inlinePromptInput.scrollHeight, 150) + 'px';
+  });
+
+  inlinePromptInput.addEventListener('keydown', (e) => {
+    // Enter to submit (Shift+Enter for new line)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const value = inlinePromptInput.value.trim();
+      if (value) {
+        closeInlinePrompt(value);
+      }
+    }
+    // Escape to cancel
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeInlinePrompt(null);
     }
   });
 

@@ -78,7 +78,7 @@
     <span id="loading-message">Processing...</span>
   </div>
 
-  <!-- Prompt dialog -->
+  <!-- Prompt dialog (legacy, keeping for other uses) -->
   <div id="prompt-dialog" class="prompt-dialog hidden">
     <div class="prompt-dialog-overlay"></div>
     <div class="prompt-dialog-content">
@@ -88,6 +88,22 @@
         <button id="prompt-dialog-cancel" class="prompt-btn cancel">Cancel</button>
         <button id="prompt-dialog-ok" class="prompt-btn ok">OK</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Inline AI Prompt Input -->
+  <div id="inline-prompt" class="inline-prompt hidden">
+    <div class="inline-prompt-input-row">
+      <textarea id="inline-prompt-input" placeholder="Edit with AI..." rows="1" autocomplete="off"></textarea>
+      <button id="inline-prompt-submit" class="inline-prompt-submit" title="Submit (Enter)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
+        </svg>
+      </button>
+      <button id="inline-prompt-close" class="inline-prompt-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div class="inline-prompt-hint">
+      <kbd>Enter</kbd> to submit · <kbd>Shift+Enter</kbd> for new line · <kbd>Esc</kbd> to cancel
     </div>
   </div>
 

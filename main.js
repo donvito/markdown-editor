@@ -368,8 +368,18 @@ ipcMain.handle('show-context-menu', (event, selectionData) => {
     if (!pluginManager.isEnabled(pluginId)) return;
 
     items.forEach(item => {
+      // Build label with shortcut if provided
+      let label = item.label;
+      if (item.shortcut) {
+        // Convert Mac shortcut to cross-platform for display
+        const shortcutDisplay = process.platform === 'darwin'
+          ? item.shortcut
+          : item.shortcut.replace('⌘', 'Ctrl+');
+        label = `${item.label}    ${shortcutDisplay}`;
+      }
+
       menuItems.push({
-        label: item.label,
+        label,
         click: () => {
           mainWindow.webContents.send('plugin:context-menu-action', {
             pluginId,

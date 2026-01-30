@@ -5,9 +5,9 @@ class AIEditorPlugin {
   }
 
   async activate() {
-    // Register context menu items
+    // Register context menu items with keyboard shortcuts displayed
     await this.api.registerContextMenu([
-      { id: 'generate', label: 'AI: Generate from prompt...' },
+      { id: 'generate', label: 'AI: Edit with AI...', shortcut: '⌘K' },
       { id: 'shorter', label: 'AI: Make shorter' },
       { id: 'longer', label: 'AI: Make longer' },
       { id: 'formal', label: 'AI: More formal tone' },
@@ -104,8 +104,8 @@ class AIEditorPlugin {
   }
 
   async generateWithPrompt(selectedText) {
-    // Ask user for the prompt
-    const userPrompt = await this.api.showPrompt('Enter your prompt for AI generation:', 'e.g., Write a summary of this text...');
+    // Ask user for the prompt using inline input
+    const userPrompt = await this.api.showInlinePrompt('Edit with AI...');
 
     if (!userPrompt) {
       return; // User cancelled

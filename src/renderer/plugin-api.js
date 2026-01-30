@@ -181,11 +181,20 @@ class PluginAPI {
     }));
   }
 
-  // Show a prompt dialog and return user input
+  // Show a prompt dialog and return user input (legacy modal)
   async showPrompt(title, placeholder = '') {
     return new Promise((resolve) => {
       document.dispatchEvent(new CustomEvent('plugin:show-prompt', {
         detail: { title, placeholder, resolve }
+      }));
+    });
+  }
+
+  // Show inline prompt input near the selection
+  async showInlinePrompt(placeholder = 'Edit selected text...') {
+    return new Promise((resolve) => {
+      document.dispatchEvent(new CustomEvent('plugin:show-inline-prompt', {
+        detail: { placeholder, resolve }
       }));
     });
   }

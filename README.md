@@ -23,9 +23,44 @@ If you like this project, please consider supporting it
 - **Sidebar** - Quick access to all open files
 - **Unsaved Changes Warning** - Prompts to save when closing tabs or the app
 - **Dark Mode** - Toggle between light and dark themes
-- **Line Numbers** - Optional line numbers in the editor
+- **Line Numbers** - Optional line numbers in the editor with word wrap support
+- **Word Wrap** - Toggle word wrap on/off in the editor
 - **Cursor Position** - Shows current line and column in status bar
 - **Cross-Platform** - Works on Mac, Windows, and Linux
+- **AI-Powered Editing** - Transform text using AI (see below)
+
+## AI Features
+
+The editor includes a built-in AI plugin for intelligent text editing. Select any text and right-click to access AI-powered transformations:
+
+- **Generate from prompt** - Describe what you want and let AI generate it
+- **Make shorter** - Condense text while keeping key information
+- **Make longer** - Expand text with more detail and examples
+- **More formal tone** - Rewrite in a professional tone
+- **More casual tone** - Rewrite in a conversational tone
+- **Fix grammar & spelling** - Correct errors automatically
+
+### Inline Streaming Preview
+
+AI-generated text streams in real-time with an inline diff view:
+- Original text shown in purple
+- Generated text shown in green with live streaming
+- Accept (`Cmd/Ctrl+Enter`) or Reject (`Esc`) changes instantly
+
+### Supported AI Providers
+
+Configure any OpenAI-compatible API in Settings:
+- **OpenAI** - GPT-4o, GPT-4o-mini
+- **Ollama** - Local models (Llama, Mistral, etc.)
+- **LM Studio** - Local models
+- **Custom** - Any OpenAI-compatible endpoint
+
+### Setup
+
+1. Open **Settings** (`Cmd/Ctrl+,`)
+2. Go to the **Plugins** tab
+3. Select your AI provider and enter your API key
+4. Choose your preferred model
 
 ## Installation
 
@@ -56,18 +91,26 @@ npm run build:all
 
 ## Keyboard Shortcuts
 
-- `Ctrl+N` / `Cmd+N` - New file
-- `Ctrl+O` / `Cmd+O` - Open file
-- `Ctrl+S` / `Cmd+S` - Save file
-- `Ctrl+Shift+S` / `Cmd+Shift+S` - Save As
-- `Ctrl+W` / `Cmd+W` - Close current tab
-- `Ctrl+Q` / `Cmd+Q` - Quit application
+### File Operations
+- `Cmd/Ctrl+N` - New file
+- `Cmd/Ctrl+O` - Open file
+- `Cmd/Ctrl+S` - Save file
+- `Cmd/Ctrl+Shift+S` - Save As
+- `Cmd/Ctrl+W` - Close current tab
+- `Cmd/Ctrl+Q` - Quit application
+- `Cmd/Ctrl+,` - Open Settings
+
+### AI Editing
+- `Cmd/Ctrl+K` - AI Generate with prompt
+- `Cmd/Ctrl+Enter` - Accept AI-generated text
+- `Esc` - Reject and close
 
 ## Dependencies
 
 - [Electron](https://www.electronjs.org/) - Cross-platform desktop app framework
 - [Marked](https://marked.js.org/) - Markdown parser
 - [highlight.js](https://highlightjs.org/) - Syntax highlighting
+- [electron-store](https://github.com/sindresorhus/electron-store) - Persistent storage for settings and API keys
 
 ## License
 

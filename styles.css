@@ -1992,3 +1992,139 @@ body:not(.dark) .inline-diff-text.generated {
   color: #1a7f37;
   border-left-color: #2ea043;
 }
+
+/* Inline AI Prompt Input */
+.inline-prompt {
+  position: fixed;
+  z-index: 10001;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  padding: 8px 12px;
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.inline-prompt.hidden {
+  display: none;
+}
+
+.inline-prompt-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#inline-prompt-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #e0e0e0;
+  padding: 8px 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  resize: none;
+  min-height: 24px;
+  max-height: 150px;
+  line-height: 1.5;
+}
+
+#inline-prompt-input::placeholder {
+  color: #666;
+}
+
+.inline-prompt-hint {
+  font-size: 11px;
+  color: #555;
+  padding: 4px 4px 0;
+  border-top: 1px solid #333;
+  margin-top: 8px;
+}
+
+.inline-prompt-hint kbd {
+  background: #333;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.inline-prompt-submit {
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #999;
+  transition: all 0.15s;
+}
+
+.inline-prompt-submit:hover {
+  background: #444;
+  color: #fff;
+  border-color: #555;
+}
+
+.inline-prompt-close {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.inline-prompt-close:hover {
+  color: #fff;
+}
+
+/* Light mode for inline prompt */
+body:not(.dark) .inline-prompt {
+  background: #fff;
+  border-color: #d0d7de;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+body:not(.dark) #inline-prompt-input {
+  color: #24292f;
+}
+
+body:not(.dark) #inline-prompt-input::placeholder {
+  color: #999;
+}
+
+body:not(.dark) .inline-prompt-submit {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+  color: #57606a;
+}
+
+body:not(.dark) .inline-prompt-submit:hover {
+  background: #e8e8e8;
+  color: #24292f;
+}
+
+body:not(.dark) .inline-prompt-close {
+  color: #999;
+}
+
+body:not(.dark) .inline-prompt-close:hover {
+  color: #24292f;
+}
+
+body:not(.dark) .inline-prompt-hint {
+  color: #999;
+  border-top-color: #e0e0e0;
+}
+
+body:not(.dark) .inline-prompt-hint kbd {
+  background: #e8e8e8;
+}
