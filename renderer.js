@@ -744,6 +744,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
+
+      // Check if the AI plugin is loaded/enabled
+      if (!window.pluginHost || !window.pluginHost.getPlugin('ai-editor')) {
+        return;
+      }
+
       const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
       document.dispatchEvent(new CustomEvent('plugin:context-menu-action', {
         detail: {

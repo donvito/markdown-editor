@@ -15,6 +15,17 @@ class SettingsModal {
     this.init();
   }
 
+  // Escape HTML to prevent injection
+  escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   init() {
     // Create modal HTML
     this.createModal();
@@ -91,8 +102,16 @@ class SettingsModal {
         const pluginId = e.target.dataset.pluginId;
         if (e.target.checked) {
           await window.pluginAPI.enablePlugin(pluginId);
+          // Load plugin at runtime
+          if (window.pluginHost) {
+            await window.pluginHost.loadPlugin(pluginId);
+          }
         } else {
           await window.pluginAPI.disablePlugin(pluginId);
+          // Unload plugin at runtime
+          if (window.pluginHost) {
+            await window.pluginHost.unloadPlugin(pluginId);
+          }
         }
       });
     });
@@ -133,15 +152,15 @@ class SettingsModal {
     const settingsHtml = await this.renderPluginSettings(plugin);
 
     return `
-      <div class="plugin-card" data-plugin-id="${plugin.id}">
+      <div class="plugin-card" data-plugin-id="${this.escapeHtml(plugin.id)}">
         <div class="plugin-header">
           <div class="plugin-info">
-            <h3 class="plugin-name">${plugin.name}</h3>
-            <p class="plugin-description">${plugin.description || ''}</p>
-            <span class="plugin-version">v${plugin.version}</span>
+            <h3 class="plugin-name">${this.escapeHtml(plugin.name)}</h3>
+            <p class="plugin-description">${this.escapeHtml(plugin.description || '')}</p>
+            <span class="plugin-version">v${this.escapeHtml(plugin.version)}</span>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" class="plugin-toggle" data-plugin-id="${plugin.id}" ${plugin.enabled ? 'checked' : ''}>
+            <input type="checkbox" class="plugin-toggle" data-plugin-id="${this.escapeHtml(plugin.id)}" ${plugin.enabled ? 'checked' : ''}>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -164,22 +183,23 @@ class SettingsModal {
       const isSecure = config.secure || false;
 
       html += `<div class="setting-group">`;
-      html += `<label class="setting-label">${config.label || key}</label>`;
+      html += `<label class="setting-label">${this.escapeHtml(config.label || key)}</label>`;
 
       if (config.type === 'select') {
-        html += `<select class="setting-input" data-plugin-id="${plugin.id}" data-key="${key}" data-secure="${isSecure}">`;
+        html += `<select class="setting-input" data-plugin-id="${this.escapeHtml(plugin.id)}" data-key="${this.escapeHtml(key)}" data-secure="${isSecure}">`;
         for (const option of (config.options || [])) {
-          html += `<option value="${option}" ${currentValue === option ? 'selected' : ''}>${option}</option>`;
+          const escaped = this.escapeHtml(option);
+          html += `<option value="${escaped}" ${currentValue === option ? 'selected' : ''}>${escaped}</option>`;
         }
         html += `</select>`;
       } else if (config.type === 'password') {
-        html += `<input type="password" class="setting-input" data-plugin-id="${plugin.id}" data-key="${key}" data-secure="true" value="${currentValue}" placeholder="${config.description || ''}">`;
+        html += `<input type="password" class="setting-input" data-plugin-id="${this.escapeHtml(plugin.id)}" data-key="${this.escapeHtml(key)}" data-secure="true" value="${this.escapeHtml(currentValue)}" placeholder="${this.escapeHtml(config.description || '')}">`;
       } else {
-        html += `<input type="text" class="setting-input" data-plugin-id="${plugin.id}" data-key="${key}" data-secure="${isSecure}" value="${currentValue}" placeholder="${config.description || ''}">`;
+        html += `<input type="text" class="setting-input" data-plugin-id="${this.escapeHtml(plugin.id)}" data-key="${this.escapeHtml(key)}" data-secure="${isSecure}" value="${this.escapeHtml(currentValue)}" placeholder="${this.escapeHtml(config.description || '')}">`;
       }
 
       if (config.description && config.type !== 'password') {
-        html += `<p class="setting-description">${config.description}</p>`;
+        html += `<p class="setting-description">${this.escapeHtml(config.description)}</p>`;
       }
 
       html += `</div>`;

@@ -94,6 +94,14 @@ function createWindow() {
     }
   });
 
+  // Clean up active streams when window closes
+  mainWindow.on('closed', () => {
+    activeStreams.forEach((abort) => {
+      if (typeof abort === 'function') abort();
+    });
+    activeStreams.clear();
+  });
+
   const menu = Menu.buildFromTemplate([
     {
       label: 'File',
@@ -316,6 +324,13 @@ ipcMain.handle('plugin:ai-request', async (event, pluginId, endpoint, payload) =
   }
 });
 
+// Helper to safely send IPC messages (window may be closed)
+function safeSend(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
 // Streaming AI request handler
 ipcMain.handle('plugin:ai-request-stream', (event, pluginId, endpoint, payload) => {
   const streamId = `stream-${++streamIdCounter}`;
@@ -326,16 +341,16 @@ ipcMain.handle('plugin:ai-request-stream', (event, pluginId, endpoint, payload) 
     payload,
     (chunk) => {
       // Send chunk to renderer
-      mainWindow.webContents.send('plugin:ai-stream-chunk', { streamId, chunk });
+      safeSend('plugin:ai-stream-chunk', { streamId, chunk });
     },
     () => {
       // Stream complete
-      mainWindow.webContents.send('plugin:ai-stream-done', { streamId });
+      safeSend('plugin:ai-stream-done', { streamId });
       activeStreams.delete(streamId);
     },
     (error) => {
       // Stream error
-      mainWindow.webContents.send('plugin:ai-stream-error', { streamId, error: error.message });
+      safeSend('plugin:ai-stream-error', { streamId, error: error.message });
       activeStreams.delete(streamId);
     }
   );
