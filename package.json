@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.donvitocodes.markdown-editor.app",
     "productName": "Markdown Editor",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "dist"
     },
