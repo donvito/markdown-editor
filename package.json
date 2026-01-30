@@ -3,6 +3,10 @@
   "productName": "Markdown Editor",
   "version": "1.0.1",
   "description": "A simple Markdown editor for Mac, Windows and Linux",
+  "author": {
+    "name": "Melvin Vivas",
+    "email": "donvitocodes@gmail.com"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
