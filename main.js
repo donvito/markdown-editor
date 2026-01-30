@@ -131,7 +131,7 @@ function createWindow() {
               type: 'info',
               title: 'About Markdown Editor',
               message: 'Markdown Editor',
-              detail: 'Version 1.0.0\n\nA simple and lightweight Markdown editor.\n\nAuthor: Melvin Vivas\nWebsite: donvitocodes.com',
+              detail: 'Version 1.0.1\n\nA simple and lightweight Markdown editor.\n\nAuthor: Melvin Vivas\nWebsite: donvitocodes.com',
               buttons: ['OK']
             });
           }

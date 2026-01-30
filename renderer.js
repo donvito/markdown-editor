@@ -624,7 +624,8 @@ document.addEventListener('DOMContentLoaded', () => {
       Array.from(files).forEach(file => {
         const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
         if (validExtensions.includes(ext)) {
-          window.electronAPI.openFilePath(file.path);
+          const filePath = window.electronAPI.getPathForFile(file);
+          window.electronAPI.openFilePath(filePath);
         }
       });
     }
