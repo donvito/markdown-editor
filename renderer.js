@@ -368,6 +368,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function switchToFile(filePath) {
     if (!openFiles.has(filePath)) return;
 
+    // Close any open AI panels to prevent inserting into wrong file
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
+
     saveCurrentFileState();
     activeFilePath = filePath;
 
@@ -470,6 +474,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Close any open AI panels to prevent inserting into wrong file
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
+
     // Save current file state before opening new file
     saveCurrentFileState();
 
@@ -505,6 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function newFile() {
+    // Close any open AI panels to prevent inserting into wrong file
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
+
     // Save current file state before creating new file
     saveCurrentFileState();
 
@@ -914,6 +926,9 @@ document.addEventListener('DOMContentLoaded', () => {
     inlineDiffGenerated.classList.remove('streaming');
     inlineDiffAction.classList.remove('generating');
 
+    // Re-enable editor
+    editor.readOnly = false;
+
     // Abort the stream if rejecting
     if (action === 'reject' && inlineDiffOnAbort) {
       inlineDiffOnAbort();
@@ -957,6 +972,9 @@ document.addEventListener('DOMContentLoaded', () => {
     inlineDiffGeneratedText = '';
     inlineDiffSelectionStart = editor.selectionStart;
     inlineDiffSelectionEnd = editor.selectionEnd;
+
+    // Make editor read-only while diff panel is open to preserve selection positions
+    editor.readOnly = true;
 
     positionInlineDiffPanel();
     inlineDiffPanel.classList.remove('hidden');
@@ -1052,6 +1070,10 @@ document.addEventListener('DOMContentLoaded', () => {
     positionInlinePrompt();
     inlinePrompt.classList.remove('hidden');
     inlinePromptInput.focus();
+  });
+
+  document.addEventListener('plugin:close-inline-prompt', () => {
+    closeInlinePrompt(null);
   });
 
   inlinePromptSubmit.addEventListener('click', () => {

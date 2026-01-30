@@ -124,16 +124,29 @@ class PluginAPI {
   // Returns { promise, abort } where abort() can be called to cancel the stream
   makeAIRequestStream(messages, onChunk, options = {}) {
     let abortFn = null;
+    let resolvePromise, rejectPromise;
     let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
+    let fullText = '';
+    let streamId = null;
 
-    const promise = new Promise(async (resolve, reject) => {
-      const { streamId } = await window.pluginAPI.makeAIRequestStream(
-        this.pluginId,
-        'chat/completions',
-        { messages, ...options }
-      );
+    const cleanup = () => {
+      if (chunkHandlerRef) window.pluginAPI.removeAIStreamListener('chunk', chunkHandlerRef);
+      if (doneHandlerRef) window.pluginAPI.removeAIStreamListener('done', doneHandlerRef);
+      if (errorHandlerRef) window.pluginAPI.removeAIStreamListener('error', errorHandlerRef);
+    };
 
-      let fullText = '';
+    const promise = new Promise((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
+    });
+
+    // Start the stream asynchronously
+    window.pluginAPI.makeAIRequestStream(
+      this.pluginId,
+      'chat/completions',
+      { messages, ...options }
+    ).then(({ streamId: sid }) => {
+      streamId = sid;
 
       const chunkHandler = (data) => {
         if (data.streamId === streamId) {
@@ -145,33 +158,31 @@ class PluginAPI {
       const doneHandler = (data) => {
         if (data.streamId === streamId) {
           cleanup();
-          resolve(fullText);
+          resolvePromise(fullText);
         }
       };
 
       const errorHandler = (data) => {
         if (data.streamId === streamId) {
           cleanup();
-          reject(new Error(data.error));
+          rejectPromise(new Error(data.error));
         }
-      };
-
-      const cleanup = () => {
-        window.pluginAPI.removeAIStreamListener('chunk', chunkHandlerRef);
-        window.pluginAPI.removeAIStreamListener('done', doneHandlerRef);
-        window.pluginAPI.removeAIStreamListener('error', errorHandlerRef);
-      };
-
-      // Store abort function
-      abortFn = () => {
-        cleanup();
-        window.pluginAPI.abortAIRequestStream(streamId);
-        resolve(fullText); // Resolve with whatever we have so far
       };
 
       chunkHandlerRef = window.pluginAPI.onAIStreamChunk(chunkHandler);
       doneHandlerRef = window.pluginAPI.onAIStreamDone(doneHandler);
       errorHandlerRef = window.pluginAPI.onAIStreamError(errorHandler);
+
+      // Store abort function now that we have streamId
+      abortFn = () => {
+        cleanup();
+        window.pluginAPI.abortAIRequestStream(streamId);
+        resolvePromise(fullText); // Resolve with whatever we have so far
+      };
+    }).catch((error) => {
+      // Handle IPC or other initialization errors
+      cleanup();
+      rejectPromise(error);
     });
 
     return {
