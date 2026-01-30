@@ -1,6 +1,6 @@
 # Markdown Editor
 
-A simple and lightweight Markdown editor for Windows and Mac
+A simple and lightweight Markdown editor with AI features for Windows, Mac, and Linux
 
 If you like this project, please consider supporting it 
 
@@ -13,13 +13,8 @@ If you like this project, please consider supporting it
 - **Syntax Highlighting** - Code blocks with syntax coloring for multiple languages
 - **Multi-Tab Support** - Open and work with multiple files simultaneously
 - **Sidebar** - Quick access to all open files
-- **Unsaved Changes Warning** - Prompts to save when closing tabs or the app
 - **Dark Mode** - Toggle between light and dark themes
-- **Line Numbers** - Optional line numbers in the editor with word wrap support
-- **Word Wrap** - Toggle word wrap on/off in the editor
-- **Cursor Position** - Shows current line and column in status bar
-- **Cross-Platform** - Works on Mac, Windows, and Linux
-- **AI-Powered Editing** - Transform text using AI (see below)
+- **AI Features** (see below)
 
 ### Light Mode
 ![Markdown Editor - Light Mode](images/markdown-editor-light.png)
@@ -41,14 +36,6 @@ The editor includes a built-in AI plugin for intelligent text editing. Select an
 ### Translate text using AI
 ![Markdown Editor - AI Generate](images/mde-translate.png)
 
-
-### Inline Streaming Preview
-
-AI-generated text streams in real-time with an inline diff view:
-- Original text shown in purple
-- Generated text shown in green with live streaming
-- Accept (`Cmd/Ctrl+Enter`) or Reject (`Esc`) changes instantly
-
 ### Supported AI Providers
 
 Configure any OpenAI-compatible API in Settings:
@@ -57,7 +44,7 @@ Configure any OpenAI-compatible API in Settings:
 - **LM Studio** - Local models
 - **Custom** - Any OpenAI-compatible endpoint
 
-### Setup
+### Configure your AI provider
 
 1. Open **Settings** (`Cmd/Ctrl+,`)
 2. Go to the **Plugins** tab
@@ -90,29 +77,6 @@ npm run build:mac
 # All platforms
 npm run build:all
 ```
-
-## Keyboard Shortcuts
-
-### File Operations
-- `Cmd/Ctrl+N` - New file
-- `Cmd/Ctrl+O` - Open file
-- `Cmd/Ctrl+S` - Save file
-- `Cmd/Ctrl+Shift+S` - Save As
-- `Cmd/Ctrl+W` - Close current tab
-- `Cmd/Ctrl+Q` - Quit application
-- `Cmd/Ctrl+,` - Open Settings
-
-### AI Editing
-- `Cmd/Ctrl+K` - AI Generate with prompt
-- `Cmd/Ctrl+Enter` - Accept AI-generated text
-- `Esc` - Reject and close
-
-## Dependencies
-
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop app framework
-- [Marked](https://marked.js.org/) - Markdown parser
-- [highlight.js](https://highlightjs.org/) - Syntax highlighting
-- [electron-store](https://github.com/sindresorhus/electron-store) - Persistent storage for settings and API keys
 
 ## License
 
