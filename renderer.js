@@ -1012,6 +1012,14 @@ document.addEventListener('DOMContentLoaded', () => {
   inlineDiffReject.addEventListener('click', () => closeInlineDiff('reject'));
   inlineDiffAccept.addEventListener('click', () => closeInlineDiff('accept'));
 
+  // Close panel when clicking outside of it (allows clicking tabs, sidebar, etc.)
+  document.addEventListener('mousedown', (e) => {
+    if (inlineDiffPanel.classList.contains('hidden')) return;
+    if (!inlineDiffPanel.contains(e.target)) {
+      closeInlineDiff('reject');
+    }
+  });
+
   // Keyboard shortcuts for inline diff
   document.addEventListener('keydown', (e) => {
     if (inlineDiffPanel.classList.contains('hidden')) return;
