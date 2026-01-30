@@ -905,6 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function closeInlineDiff(action) {
     inlineDiffPanel.classList.add('hidden');
     inlineDiffGenerated.classList.remove('streaming');
+    inlineDiffAction.classList.remove('generating');
 
     if (action === 'accept') {
       // Replace the selection with generated text
@@ -925,6 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const { actionLabel, originalText, resolve } = e.detail;
 
     inlineDiffAction.textContent = actionLabel;
+    inlineDiffAction.classList.add('generating');
     inlineDiffOriginal.textContent = originalText || '(empty)';
     inlineDiffGenerated.textContent = '';
     inlineDiffGenerated.classList.add('streaming');
@@ -950,6 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('plugin:finish-inline-diff-streaming', () => {
     inlineDiffGenerated.classList.remove('streaming');
+    inlineDiffAction.classList.remove('generating');
   });
 
   document.addEventListener('plugin:close-inline-diff', () => {

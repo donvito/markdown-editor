@@ -36,23 +36,23 @@ class AIEditorPlugin {
     let instruction, actionLabel;
     switch (actionId) {
       case 'shorter':
-        actionLabel = 'shorten';
+        actionLabel = 'shortening';
         instruction = 'Make this text more concise while keeping the key information. Only return the shortened text, no explanations.';
         break;
       case 'longer':
-        actionLabel = 'expand';
+        actionLabel = 'expanding';
         instruction = 'Expand this text with more detail, examples, and explanation. Only return the expanded text, no explanations.';
         break;
       case 'formal':
-        actionLabel = 'formal tone';
+        actionLabel = 'formalizing';
         instruction = 'Rewrite this in a more formal, professional tone. Only return the rewritten text, no explanations.';
         break;
       case 'casual':
-        actionLabel = 'casual tone';
+        actionLabel = 'casualizing';
         instruction = 'Rewrite this in a more casual, conversational tone. Only return the rewritten text, no explanations.';
         break;
       case 'fix-grammar':
-        actionLabel = 'fix grammar';
+        actionLabel = 'fixing grammar';
         instruction = 'Fix any grammar, spelling, or punctuation errors in this text. Only return the corrected text, no explanations.';
         break;
       default:
@@ -112,7 +112,7 @@ class AIEditorPlugin {
     }
 
     // Show the inline diff panel immediately
-    const panelPromise = this.api.startInlineDiff('generate', selectedText || '(from prompt)');
+    const panelPromise = this.api.startInlineDiff('generating', selectedText || '(from prompt)');
 
     try {
       const fullPrompt = selectedText
