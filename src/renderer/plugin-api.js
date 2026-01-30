@@ -124,6 +124,7 @@ class PluginAPI {
   // Returns { promise, abort } where abort() can be called to cancel the stream
   makeAIRequestStream(messages, onChunk, options = {}) {
     let abortFn = null;
+    let abortRequested = false;
     let resolvePromise, rejectPromise;
     let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
     let fullText = '';
@@ -147,6 +148,13 @@ class PluginAPI {
       { messages, ...options }
     ).then(({ streamId: sid }) => {
       streamId = sid;
+
+      // If abort was requested before stream started, abort immediately
+      if (abortRequested) {
+        window.pluginAPI.abortAIRequestStream(streamId);
+        resolvePromise(fullText);
+        return;
+      }
 
       const chunkHandler = (data) => {
         if (data.streamId === streamId) {
@@ -187,7 +195,15 @@ class PluginAPI {
 
     return {
       promise,
-      abort: () => abortFn && abortFn()
+      abort: () => {
+        if (abortFn) {
+          abortFn();
+        } else {
+          // Stream hasn't started yet, mark for abort when it does
+          abortRequested = true;
+          resolvePromise(fullText);
+        }
+      }
     };
   }
 
