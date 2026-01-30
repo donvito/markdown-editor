@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const lineNumbers = document.getElementById('line-numbers');
   const cursorPosition = document.getElementById('cursor-position');
   const toggleLineNumbersBtn = document.getElementById('toggle-line-numbers');
+  const toggleWordWrapBtn = document.getElementById('toggle-word-wrap');
   const sidebar = document.getElementById('sidebar');
   const toggleSidebarBtn = document.getElementById('toggle-sidebar');
   const fileList = document.getElementById('file-list');
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isDarkMode = localStorage.getItem('darkMode') === 'true';
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+  let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
 
   // Initialize theme
   const lightIcon = themeToggle.querySelector('.light-icon');
@@ -86,9 +88,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Measurement element for calculating wrapped line heights
+  let measureElement = null;
+
+  function getMeasureElement() {
+    if (!measureElement) {
+      measureElement = document.createElement('div');
+      // Copy computed styles from editor for accurate measurement
+      const editorStyles = getComputedStyle(editor);
+      measureElement.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: ${editorStyles.fontFamily};
+        font-size: ${editorStyles.fontSize};
+        line-height: ${editorStyles.lineHeight};
+        letter-spacing: ${editorStyles.letterSpacing};
+        padding: 0;
+        border: none;
+        box-sizing: border-box;
+      `;
+      document.body.appendChild(measureElement);
+    }
+    return measureElement;
+  }
+
+  function getLineHeight() {
+    const computed = getComputedStyle(editor);
+    const lineHeight = parseFloat(computed.lineHeight);
+    // If lineHeight is NaN (e.g., "normal"), calculate from font size
+    if (isNaN(lineHeight)) {
+      return parseFloat(computed.fontSize) * 1.6;
+    }
+    return lineHeight;
+  }
+
   function updateLineNumbers() {
-    const lines = editor.value.split('\n').length;
-    const lineNumbersHtml = Array.from({ length: lines }, (_, i) => `<span>${i + 1}</span>`).join('');
+    const lines = editor.value.split('\n');
+    const lineHeight = getLineHeight();
+
+    // If word wrap is disabled, use simple line numbers
+    if (!wordWrap) {
+      const lineNumbersHtml = lines.map((_, i) => `<span>${i + 1}</span>`).join('');
+      lineNumbers.innerHTML = lineNumbersHtml;
+      return;
+    }
+
+    // Calculate visual height for each line when word wrap is enabled
+    const measure = getMeasureElement();
+    const editorWidth = editor.clientWidth - 40; // Subtract padding (20px each side)
+    measure.style.width = editorWidth + 'px';
+
+    const lineNumbersHtml = lines.map((line, i) => {
+      // Measure the height of this line when wrapped
+      measure.textContent = line || ' '; // Use space for empty lines
+      const height = measure.offsetHeight;
+      const visualLines = Math.max(1, Math.round(height / lineHeight));
+      const spanHeight = visualLines * lineHeight;
+
+      return `<span style="height: ${spanHeight}px">${i + 1}</span>`;
+    }).join('');
+
     lineNumbers.innerHTML = lineNumbersHtml;
   }
 
@@ -100,6 +161,24 @@ document.addEventListener('DOMContentLoaded', () => {
     showLineNumbers = !showLineNumbers;
     localStorage.setItem('showLineNumbers', showLineNumbers);
     initLineNumbers();
+  }
+
+  // Word wrap functions
+  function initWordWrap() {
+    if (wordWrap) {
+      editor.classList.remove('no-wrap');
+      toggleWordWrapBtn.classList.add('active');
+    } else {
+      editor.classList.add('no-wrap');
+      toggleWordWrapBtn.classList.remove('active');
+    }
+  }
+
+  function toggleWordWrap() {
+    wordWrap = !wordWrap;
+    localStorage.setItem('wordWrap', wordWrap);
+    initWordWrap();
+    updateLineNumbers(); // Recalculate line heights
   }
 
   // Sync scrolling between editor and preview
@@ -135,11 +214,27 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { isPreviewScrolling = false; }, 50);
   }
 
-  // Initialize line numbers
+  // Initialize line numbers and word wrap
   initLineNumbers();
+  initWordWrap();
 
   // Line numbers toggle button
   toggleLineNumbersBtn.addEventListener('click', toggleLineNumbersVisibility);
+
+  // Word wrap toggle button
+  toggleWordWrapBtn.addEventListener('click', toggleWordWrap);
+
+  // Update line numbers when editor is resized (affects word wrap)
+  let resizeTimer;
+  const resizeObserver = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (wordWrap) {
+        updateLineNumbers();
+      }
+    }, 100);
+  });
+  resizeObserver.observe(editor);
 
   // Sync scroll - line numbers and preview
   editor.addEventListener('scroll', () => {
@@ -496,6 +591,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('plugin:streaming-end', () => {
     isStreaming = false;
     updatePreview(); // Final update when streaming ends
+    updateLineNumbers(); // Ensure line numbers are updated
+    syncLineNumbersScroll(); // Sync scroll position
   });
 
   // Toggle buttons
