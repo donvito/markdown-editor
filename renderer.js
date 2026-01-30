@@ -926,8 +926,9 @@ document.addEventListener('DOMContentLoaded', () => {
     inlineDiffGenerated.classList.remove('streaming');
     inlineDiffAction.classList.remove('generating');
 
-    // Re-enable editor
+    // Re-enable editor and accept button for next use
     editor.readOnly = false;
+    inlineDiffAccept.disabled = false;
 
     // Abort the stream if rejecting
     if (action === 'reject' && inlineDiffOnAbort) {
@@ -976,6 +977,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make editor read-only while diff panel is open to preserve selection positions
     editor.readOnly = true;
 
+    // Disable Accept button until generation completes
+    inlineDiffAccept.disabled = true;
+
     positionInlineDiffPanel();
     inlineDiffPanel.classList.remove('hidden');
   });
@@ -993,6 +997,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('plugin:finish-inline-diff-streaming', () => {
     inlineDiffGenerated.classList.remove('streaming');
     inlineDiffAction.classList.remove('generating');
+    // Enable Accept button now that generation is complete
+    inlineDiffAccept.disabled = false;
   });
 
   document.addEventListener('plugin:close-inline-diff', () => {
