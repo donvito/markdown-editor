@@ -925,6 +925,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('plugin:start-inline-diff', (e) => {
     const { actionLabel, originalText, resolve } = e.detail;
 
+    // Reject any pending promise before opening new dialog
+    if (inlineDiffResolve) {
+      inlineDiffResolve('reject');
+      inlineDiffResolve = null;
+    }
+
     inlineDiffAction.textContent = actionLabel;
     inlineDiffAction.classList.add('generating');
     inlineDiffOriginal.textContent = originalText || '(empty)';
@@ -1014,7 +1020,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('plugin:show-inline-prompt', (e) => {
     const { placeholder, resolve } = e.detail;
-    inlinePromptInput.placeholder = placeholder || 'Edit selected text...';
+
+    // Reject any pending promise before opening new dialog
+    if (inlinePromptResolve) {
+      inlinePromptResolve(null);
+      inlinePromptResolve = null;
+    }
+
+    inlinePromptInput.placeholder = placeholder || 'Edit with AI...';
     inlinePromptResolve = resolve;
     positionInlinePrompt();
     inlinePrompt.classList.remove('hidden');

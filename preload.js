@@ -51,10 +51,22 @@ contextBridge.exposeInMainWorld('pluginAPI', {
     ipcRenderer.invoke('plugin:ai-request-stream', pluginId, endpoint, payload),
   abortAIRequestStream: (streamId) =>
     ipcRenderer.invoke('plugin:ai-request-abort', streamId),
-  onAIStreamChunk: (callback) =>
-    ipcRenderer.on('plugin:ai-stream-chunk', (event, data) => callback(data)),
-  onAIStreamDone: (callback) =>
-    ipcRenderer.on('plugin:ai-stream-done', (event, data) => callback(data)),
-  onAIStreamError: (callback) =>
-    ipcRenderer.on('plugin:ai-stream-error', (event, data) => callback(data))
+  onAIStreamChunk: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('plugin:ai-stream-chunk', handler);
+    return handler;
+  },
+  onAIStreamDone: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('plugin:ai-stream-done', handler);
+    return handler;
+  },
+  onAIStreamError: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('plugin:ai-stream-error', handler);
+    return handler;
+  },
+  removeAIStreamListener: (channel, handler) => {
+    ipcRenderer.removeListener(`plugin:ai-stream-${channel}`, handler);
+  }
 });

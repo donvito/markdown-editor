@@ -340,7 +340,10 @@ ipcMain.handle('plugin:ai-request-stream', (event, pluginId, endpoint, payload) 
     }
   );
 
-  activeStreams.set(streamId, abort);
+  // Only track stream if it actually started (abort function returned)
+  if (abort) {
+    activeStreams.set(streamId, abort);
+  }
   return { streamId };
 });
 

@@ -130,6 +130,7 @@ class PluginAPI {
       );
 
       let fullText = '';
+      let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
 
       const chunkHandler = (data) => {
         if (data.streamId === streamId) {
@@ -153,14 +154,14 @@ class PluginAPI {
       };
 
       const cleanup = () => {
-        window.pluginAPI.onAIStreamChunk(() => {});
-        window.pluginAPI.onAIStreamDone(() => {});
-        window.pluginAPI.onAIStreamError(() => {});
+        window.pluginAPI.removeAIStreamListener('chunk', chunkHandlerRef);
+        window.pluginAPI.removeAIStreamListener('done', doneHandlerRef);
+        window.pluginAPI.removeAIStreamListener('error', errorHandlerRef);
       };
 
-      window.pluginAPI.onAIStreamChunk(chunkHandler);
-      window.pluginAPI.onAIStreamDone(doneHandler);
-      window.pluginAPI.onAIStreamError(errorHandler);
+      chunkHandlerRef = window.pluginAPI.onAIStreamChunk(chunkHandler);
+      doneHandlerRef = window.pluginAPI.onAIStreamDone(doneHandler);
+      errorHandlerRef = window.pluginAPI.onAIStreamError(errorHandler);
     });
   }
 

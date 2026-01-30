@@ -108,6 +108,7 @@ function makeAIRequestStream(pluginId, endpoint, payload, onChunk, onDone, onErr
     }
 
     let buffer = '';
+    let isDone = false;
 
     res.on('data', (chunk) => {
       buffer += chunk.toString();
@@ -123,7 +124,10 @@ function makeAIRequestStream(pluginId, endpoint, payload, onChunk, onDone, onErr
         const data = trimmed.slice(6); // Remove 'data: ' prefix
 
         if (data === '[DONE]') {
-          onDone();
+          if (!isDone) {
+            isDone = true;
+            onDone();
+          }
           return;
         }
 
@@ -140,7 +144,10 @@ function makeAIRequestStream(pluginId, endpoint, payload, onChunk, onDone, onErr
     });
 
     res.on('end', () => {
-      onDone();
+      if (!isDone) {
+        isDone = true;
+        onDone();
+      }
     });
 
     res.on('error', (error) => {
