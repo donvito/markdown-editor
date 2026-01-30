@@ -66,6 +66,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // Don't show until ready
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -76,8 +77,11 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // Maximize window by default
-  mainWindow.maximize();
+  // Show window maximized once ready (avoids animation)
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+  });
 
   // Handle window close with unsaved changes check
   mainWindow.on('close', (e) => {
