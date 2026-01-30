@@ -881,6 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inlineDiffAccept = document.getElementById('inline-diff-accept');
 
   let inlineDiffResolve = null;
+  let inlineDiffOnAbort = null;
   let inlineDiffOriginalText = '';
   let inlineDiffGeneratedText = '';
   let inlineDiffSelectionStart = 0;
@@ -913,6 +914,12 @@ document.addEventListener('DOMContentLoaded', () => {
     inlineDiffGenerated.classList.remove('streaming');
     inlineDiffAction.classList.remove('generating');
 
+    // Abort the stream if rejecting
+    if (action === 'reject' && inlineDiffOnAbort) {
+      inlineDiffOnAbort();
+      inlineDiffOnAbort = null;
+    }
+
     if (action === 'accept') {
       // Replace the selection with generated text
       editor.focus();
@@ -929,12 +936,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('plugin:start-inline-diff', (e) => {
-    const { actionLabel, originalText, resolve } = e.detail;
+    const { actionLabel, originalText, resolve, onAbort } = e.detail;
 
     // Reject any pending promise before opening new dialog
     if (inlineDiffResolve) {
+      if (inlineDiffOnAbort) inlineDiffOnAbort();
       inlineDiffResolve('reject');
       inlineDiffResolve = null;
+      inlineDiffOnAbort = null;
     }
 
     inlineDiffAction.textContent = actionLabel;
@@ -943,6 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inlineDiffGenerated.textContent = '';
     inlineDiffGenerated.classList.add('streaming');
     inlineDiffResolve = resolve;
+    inlineDiffOnAbort = onAbort;
     inlineDiffOriginalText = originalText;
     inlineDiffGeneratedText = '';
     inlineDiffSelectionStart = editor.selectionStart;
@@ -969,6 +979,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('plugin:close-inline-diff', () => {
     closeInlineDiff('reject');
+  });
+
+  document.addEventListener('plugin:set-inline-diff-abort', (e) => {
+    inlineDiffOnAbort = e.detail.abort;
   });
 
   inlineDiffReject.addEventListener('click', () => closeInlineDiff('reject'));

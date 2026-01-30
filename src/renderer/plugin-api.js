@@ -121,8 +121,12 @@ class PluginAPI {
   }
 
   // Streaming AI request - calls onChunk for each text chunk, returns full text when done
-  async makeAIRequestStream(messages, onChunk, options = {}) {
-    return new Promise(async (resolve, reject) => {
+  // Returns { promise, abort } where abort() can be called to cancel the stream
+  makeAIRequestStream(messages, onChunk, options = {}) {
+    let abortFn = null;
+    let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
+
+    const promise = new Promise(async (resolve, reject) => {
       const { streamId } = await window.pluginAPI.makeAIRequestStream(
         this.pluginId,
         'chat/completions',
@@ -130,7 +134,6 @@ class PluginAPI {
       );
 
       let fullText = '';
-      let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
 
       const chunkHandler = (data) => {
         if (data.streamId === streamId) {
@@ -159,10 +162,22 @@ class PluginAPI {
         window.pluginAPI.removeAIStreamListener('error', errorHandlerRef);
       };
 
+      // Store abort function
+      abortFn = () => {
+        cleanup();
+        window.pluginAPI.abortAIRequestStream(streamId);
+        resolve(fullText); // Resolve with whatever we have so far
+      };
+
       chunkHandlerRef = window.pluginAPI.onAIStreamChunk(chunkHandler);
       doneHandlerRef = window.pluginAPI.onAIStreamDone(doneHandler);
       errorHandlerRef = window.pluginAPI.onAIStreamError(errorHandler);
     });
+
+    return {
+      promise,
+      abort: () => abortFn && abortFn()
+    };
   }
 
   // UI helpers
@@ -212,13 +227,14 @@ class PluginAPI {
 
   // Start inline diff panel for streaming AI generation
   // Returns an object with methods to update and close the panel
-  startInlineDiff(actionLabel, originalText) {
+  startInlineDiff(actionLabel, originalText, onAbort = null) {
     return new Promise((resolve) => {
       document.dispatchEvent(new CustomEvent('plugin:start-inline-diff', {
         detail: {
           actionLabel,
           originalText,
-          resolve
+          resolve,
+          onAbort
         }
       }));
     });
@@ -239,6 +255,13 @@ class PluginAPI {
   // Close the inline diff panel programmatically
   closeInlineDiff() {
     document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+  }
+
+  // Set abort handler for current inline diff (called after stream starts)
+  setInlineDiffAbort(abortFn) {
+    document.dispatchEvent(new CustomEvent('plugin:set-inline-diff-abort', {
+      detail: { abort: abortFn }
+    }));
   }
 }
 

@@ -69,7 +69,7 @@ class AIEditorPlugin {
     const panelPromise = this.api.startInlineDiff(actionLabel, originalText);
 
     try {
-      await this.api.makeAIRequestStream(
+      const { promise: streamPromise, abort } = this.api.makeAIRequestStream(
         [
           {
             role: 'system',
@@ -85,6 +85,11 @@ class AIEditorPlugin {
           this.api.updateInlineDiff(fullText);
         }
       );
+
+      // Set abort handler so Reject button can stop the stream
+      this.api.setInlineDiffAbort(abort);
+
+      await streamPromise;
 
       // Mark streaming as complete
       this.api.finishInlineDiffStreaming();
@@ -119,7 +124,7 @@ class AIEditorPlugin {
         ? `${userPrompt}\n\nContext/Selected text:\n${selectedText}`
         : userPrompt;
 
-      await this.api.makeAIRequestStream(
+      const { promise: streamPromise, abort } = this.api.makeAIRequestStream(
         [
           {
             role: 'system',
@@ -134,6 +139,11 @@ class AIEditorPlugin {
           this.api.updateInlineDiff(fullText);
         }
       );
+
+      // Set abort handler so Reject button can stop the stream
+      this.api.setInlineDiffAbort(abort);
+
+      await streamPromise;
 
       this.api.finishInlineDiffStreaming();
 
