@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const lineNumbers = document.getElementById('line-numbers');
   const cursorPosition = document.getElementById('cursor-position');
   const toggleLineNumbersBtn = document.getElementById('toggle-line-numbers');
+  const toggleWordWrapBtn = document.getElementById('toggle-word-wrap');
   const sidebar = document.getElementById('sidebar');
   const toggleSidebarBtn = document.getElementById('toggle-sidebar');
   const fileList = document.getElementById('file-list');
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isDarkMode = localStorage.getItem('darkMode') === 'true';
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+  let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
 
   // Initialize theme
   const lightIcon = themeToggle.querySelector('.light-icon');
@@ -86,9 +88,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Measurement element for calculating wrapped line heights
+  let measureElement = null;
+
+  function getMeasureElement() {
+    if (!measureElement) {
+      measureElement = document.createElement('div');
+      // Copy computed styles from editor for accurate measurement
+      const editorStyles = getComputedStyle(editor);
+      measureElement.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: ${editorStyles.fontFamily};
+        font-size: ${editorStyles.fontSize};
+        line-height: ${editorStyles.lineHeight};
+        letter-spacing: ${editorStyles.letterSpacing};
+        padding: 0;
+        border: none;
+        box-sizing: border-box;
+      `;
+      document.body.appendChild(measureElement);
+    }
+    return measureElement;
+  }
+
+  function getLineHeight() {
+    const computed = getComputedStyle(editor);
+    const lineHeight = parseFloat(computed.lineHeight);
+    // If lineHeight is NaN (e.g., "normal"), calculate from font size
+    if (isNaN(lineHeight)) {
+      return parseFloat(computed.fontSize) * 1.6;
+    }
+    return lineHeight;
+  }
+
   function updateLineNumbers() {
-    const lines = editor.value.split('\n').length;
-    const lineNumbersHtml = Array.from({ length: lines }, (_, i) => `<span>${i + 1}</span>`).join('');
+    const lines = editor.value.split('\n');
+    const lineHeight = getLineHeight();
+
+    // If word wrap is disabled, use simple line numbers
+    if (!wordWrap) {
+      const lineNumbersHtml = lines.map((_, i) => `<span>${i + 1}</span>`).join('');
+      lineNumbers.innerHTML = lineNumbersHtml;
+      return;
+    }
+
+    // Calculate visual height for each line when word wrap is enabled
+    const measure = getMeasureElement();
+    const editorWidth = editor.clientWidth - 40; // Subtract padding (20px each side)
+    measure.style.width = editorWidth + 'px';
+
+    const lineNumbersHtml = lines.map((line, i) => {
+      // Measure the height of this line when wrapped
+      measure.textContent = line || ' '; // Use space for empty lines
+      const height = measure.offsetHeight;
+      const visualLines = Math.max(1, Math.round(height / lineHeight));
+      const spanHeight = visualLines * lineHeight;
+
+      return `<span style="height: ${spanHeight}px">${i + 1}</span>`;
+    }).join('');
+
     lineNumbers.innerHTML = lineNumbersHtml;
   }
 
@@ -100,6 +161,24 @@ document.addEventListener('DOMContentLoaded', () => {
     showLineNumbers = !showLineNumbers;
     localStorage.setItem('showLineNumbers', showLineNumbers);
     initLineNumbers();
+  }
+
+  // Word wrap functions
+  function initWordWrap() {
+    if (wordWrap) {
+      editor.classList.remove('no-wrap');
+      toggleWordWrapBtn.classList.add('active');
+    } else {
+      editor.classList.add('no-wrap');
+      toggleWordWrapBtn.classList.remove('active');
+    }
+  }
+
+  function toggleWordWrap() {
+    wordWrap = !wordWrap;
+    localStorage.setItem('wordWrap', wordWrap);
+    initWordWrap();
+    updateLineNumbers(); // Recalculate line heights
   }
 
   // Sync scrolling between editor and preview
@@ -135,11 +214,27 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { isPreviewScrolling = false; }, 50);
   }
 
-  // Initialize line numbers
+  // Initialize line numbers and word wrap
   initLineNumbers();
+  initWordWrap();
 
   // Line numbers toggle button
   toggleLineNumbersBtn.addEventListener('click', toggleLineNumbersVisibility);
+
+  // Word wrap toggle button
+  toggleWordWrapBtn.addEventListener('click', toggleWordWrap);
+
+  // Update line numbers when editor is resized (affects word wrap)
+  let resizeTimer;
+  const resizeObserver = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (wordWrap) {
+        updateLineNumbers();
+      }
+    }, 100);
+  });
+  resizeObserver.observe(editor);
 
   // Sync scroll - line numbers and preview
   editor.addEventListener('scroll', () => {
@@ -273,6 +368,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function switchToFile(filePath) {
     if (!openFiles.has(filePath)) return;
 
+    // Close any open AI panels to prevent inserting into wrong file
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
+
     saveCurrentFileState();
     activeFilePath = filePath;
 
@@ -375,6 +474,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Close any open AI panels to prevent inserting into wrong file
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
+
     // Save current file state before opening new file
     saveCurrentFileState();
 
@@ -410,6 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function newFile() {
+    // Close any open AI panels to prevent inserting into wrong file
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
+
     // Save current file state before creating new file
     saveCurrentFileState();
 
@@ -461,6 +568,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Editor input handler with debounced preview update
   let debounceTimer;
+  let isStreaming = false;
+  let lastStreamUpdate = 0;
+  const STREAM_THROTTLE = 50; // Update preview every 50ms during streaming
+
   editor.addEventListener('input', () => {
     if (activeFilePath && openFiles.has(activeFilePath)) {
       openFiles.get(activeFilePath).content = editor.value;
@@ -469,8 +580,31 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLineNumbers();
     updateCursorPosition();
 
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(updatePreview, 150);
+    if (isStreaming) {
+      // Throttle updates during streaming for smoother preview
+      const now = Date.now();
+      if (now - lastStreamUpdate > STREAM_THROTTLE) {
+        lastStreamUpdate = now;
+        updatePreview();
+      }
+    } else {
+      // Normal debounce for regular typing
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updatePreview, 150);
+    }
+  });
+
+  // Listen for streaming state changes from plugins
+  document.addEventListener('plugin:streaming-start', () => {
+    isStreaming = true;
+    lastStreamUpdate = 0;
+  });
+
+  document.addEventListener('plugin:streaming-end', () => {
+    isStreaming = false;
+    updatePreview(); // Final update when streaming ends
+    updateLineNumbers(); // Ensure line numbers are updated
+    syncLineNumbersScroll(); // Sync scroll position
   });
 
   // Toggle buttons
@@ -597,6 +731,420 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // Handle right-click context menu for AI actions
+  editor.addEventListener('contextmenu', (e) => {
+    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+
+    if (selectedText.length > 0) {
+      e.preventDefault();
+      window.electronAPI.showContextMenu({
+        selectedText,
+        selectionStart: editor.selectionStart,
+        selectionEnd: editor.selectionEnd
+      });
+    }
+  });
+
+  // Handle plugin context menu actions
+  window.pluginAPI.onContextMenuAction((data) => {
+    // Dispatch event for plugin host to handle
+    document.dispatchEvent(new CustomEvent('plugin:context-menu-action', { detail: data }));
+  });
+
+  // Cmd/Ctrl+K shortcut for AI Generate with prompt
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+
+      // Check if the AI plugin is loaded/enabled
+      if (!window.pluginHost || !window.pluginHost.getPlugin('ai-editor')) {
+        return;
+      }
+
+      const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+      document.dispatchEvent(new CustomEvent('plugin:context-menu-action', {
+        detail: {
+          pluginId: 'ai-editor',
+          actionId: 'generate',
+          selectedText,
+          selectionStart: editor.selectionStart,
+          selectionEnd: editor.selectionEnd
+        }
+      }));
+    }
+  });
+
+  // Handle open settings
+  window.electronAPI.onOpenSettings(() => {
+    document.dispatchEvent(new CustomEvent('open-settings'));
+  });
+
+  // Loading indicator handlers (small, non-blocking)
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const loadingMessage = document.getElementById('loading-message');
+
+  document.addEventListener('plugin:show-loading', (e) => {
+    loadingMessage.textContent = e.detail.message || 'Processing...';
+    loadingIndicator.classList.remove('hidden');
+  });
+
+  document.addEventListener('plugin:hide-loading', () => {
+    loadingIndicator.classList.add('hidden');
+  });
+
+  // Prompt dialog handlers
+  const promptDialog = document.getElementById('prompt-dialog');
+  const promptDialogTitle = document.getElementById('prompt-dialog-title');
+  const promptDialogInput = document.getElementById('prompt-dialog-input');
+  const promptDialogCancel = document.getElementById('prompt-dialog-cancel');
+  const promptDialogOk = document.getElementById('prompt-dialog-ok');
+  let promptResolve = null;
+
+  document.addEventListener('plugin:show-prompt', (e) => {
+    const { title, placeholder, resolve } = e.detail;
+    promptDialogTitle.textContent = title || 'Enter prompt';
+    promptDialogInput.placeholder = placeholder || '';
+    promptDialogInput.value = '';
+    promptResolve = resolve;
+    promptDialog.classList.remove('hidden');
+    promptDialogInput.focus();
+  });
+
+  promptDialogCancel.addEventListener('click', () => {
+    promptDialog.classList.add('hidden');
+    if (promptResolve) {
+      promptResolve(null);
+      promptResolve = null;
+    }
+  });
+
+  promptDialogOk.addEventListener('click', () => {
+    promptDialog.classList.add('hidden');
+    if (promptResolve) {
+      promptResolve(promptDialogInput.value.trim() || null);
+      promptResolve = null;
+    }
+  });
+
+  // Allow Enter to submit (Shift+Enter for newline)
+  promptDialogInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      promptDialogOk.click();
+    } else if (e.key === 'Escape') {
+      promptDialogCancel.click();
+    }
+  });
+
+  // Close prompt on overlay click
+  promptDialog.querySelector('.prompt-dialog-overlay').addEventListener('click', () => {
+    promptDialogCancel.click();
+  });
+
+  // AI Review dialog handlers
+  const aiReviewDialog = document.getElementById('ai-review-dialog');
+  const aiReviewOriginal = document.getElementById('ai-review-original');
+  const aiReviewGenerated = document.getElementById('ai-review-generated');
+  const aiReviewClose = document.getElementById('ai-review-close');
+  const aiReviewRegenerate = document.getElementById('ai-review-regenerate');
+  const aiReviewReject = document.getElementById('ai-review-reject');
+  const aiReviewAccept = document.getElementById('ai-review-accept');
+  let aiReviewResolve = null;
+
+  document.addEventListener('plugin:show-review', (e) => {
+    const { original, generated, resolve } = e.detail;
+    aiReviewOriginal.textContent = original || '(empty)';
+    aiReviewGenerated.textContent = generated || '(empty)';
+    aiReviewResolve = resolve;
+    aiReviewDialog.classList.remove('hidden');
+  });
+
+  function closeAiReview(action) {
+    aiReviewDialog.classList.add('hidden');
+    if (aiReviewResolve) {
+      aiReviewResolve(action);
+      aiReviewResolve = null;
+    }
+  }
+
+  aiReviewClose.addEventListener('click', () => closeAiReview('reject'));
+  aiReviewReject.addEventListener('click', () => closeAiReview('reject'));
+  aiReviewAccept.addEventListener('click', () => closeAiReview('accept'));
+  aiReviewRegenerate.addEventListener('click', () => closeAiReview('regenerate'));
+
+  aiReviewDialog.querySelector('.ai-review-overlay').addEventListener('click', () => {
+    closeAiReview('reject');
+  });
+
+  // Escape key to close review dialog
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !aiReviewDialog.classList.contains('hidden')) {
+      closeAiReview('reject');
+    }
+  });
+
+  // Inline Diff Panel handlers
+  const inlineDiffPanel = document.getElementById('inline-diff-panel');
+  const inlineDiffAction = document.getElementById('inline-diff-action');
+  const inlineDiffOriginal = document.getElementById('inline-diff-original');
+  const inlineDiffGenerated = document.getElementById('inline-diff-generated');
+  const inlineDiffReject = document.getElementById('inline-diff-reject');
+  const inlineDiffAccept = document.getElementById('inline-diff-accept');
+
+  let inlineDiffResolve = null;
+  let inlineDiffOnAbort = null;
+  let inlineDiffOriginalText = '';
+  let inlineDiffGeneratedText = '';
+  let inlineDiffSelectionStart = 0;
+  let inlineDiffSelectionEnd = 0;
+
+  function positionInlineDiffPanel() {
+    // Get the editor's position
+    const editorRect = editor.getBoundingClientRect();
+
+    // Position panel width - wider, but constrained to editor width
+    const panelWidth = Math.min(650, Math.max(500, editorRect.width - 60));
+    inlineDiffPanel.style.width = panelWidth + 'px';
+
+    // Center horizontally relative to editor
+    let left = editorRect.left + (editorRect.width - panelWidth) / 2;
+    // Keep within viewport
+    left = Math.max(20, Math.min(left, window.innerWidth - panelWidth - 20));
+    inlineDiffPanel.style.left = left + 'px';
+
+    // Position vertically - try to show near top of editor area
+    let top = editorRect.top + 60;
+
+    // Keep within viewport with margin
+    top = Math.max(60, Math.min(top, 100));
+    inlineDiffPanel.style.top = top + 'px';
+  }
+
+  function closeInlineDiff(action) {
+    inlineDiffPanel.classList.add('hidden');
+    inlineDiffGenerated.classList.remove('streaming');
+    inlineDiffAction.classList.remove('generating');
+
+    // Re-enable editor and accept button for next use
+    editor.readOnly = false;
+    inlineDiffAccept.disabled = false;
+
+    // Abort the stream if rejecting
+    if (action === 'reject' && inlineDiffOnAbort) {
+      inlineDiffOnAbort();
+      inlineDiffOnAbort = null;
+    }
+
+    if (action === 'accept') {
+      // Replace the selection with generated text
+      editor.focus();
+      editor.selectionStart = inlineDiffSelectionStart;
+      editor.selectionEnd = inlineDiffSelectionEnd;
+      document.execCommand('insertText', false, inlineDiffGeneratedText);
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    if (inlineDiffResolve) {
+      inlineDiffResolve(action);
+      inlineDiffResolve = null;
+    }
+  }
+
+  document.addEventListener('plugin:start-inline-diff', (e) => {
+    const { actionLabel, originalText, resolve, onAbort } = e.detail;
+
+    // Reject any pending promise before opening new dialog
+    if (inlineDiffResolve) {
+      if (inlineDiffOnAbort) inlineDiffOnAbort();
+      inlineDiffResolve('reject');
+      inlineDiffResolve = null;
+      inlineDiffOnAbort = null;
+    }
+
+    inlineDiffAction.textContent = actionLabel;
+    inlineDiffAction.classList.add('generating');
+    inlineDiffOriginal.textContent = originalText || '(empty)';
+    inlineDiffGenerated.textContent = '';
+    inlineDiffGenerated.classList.add('streaming');
+    inlineDiffResolve = resolve;
+    inlineDiffOnAbort = onAbort;
+    inlineDiffOriginalText = originalText;
+    inlineDiffGeneratedText = '';
+    inlineDiffSelectionStart = editor.selectionStart;
+    inlineDiffSelectionEnd = editor.selectionEnd;
+
+    // Make editor read-only while diff panel is open to preserve selection positions
+    editor.readOnly = true;
+
+    // Disable Accept button until generation completes
+    inlineDiffAccept.disabled = true;
+
+    positionInlineDiffPanel();
+    inlineDiffPanel.classList.remove('hidden');
+  });
+
+  document.addEventListener('plugin:update-inline-diff', (e) => {
+    const { text } = e.detail;
+    inlineDiffGeneratedText = text;
+    inlineDiffGenerated.textContent = text;
+
+    // Auto-scroll to show latest content
+    const body = inlineDiffPanel.querySelector('.inline-diff-body');
+    body.scrollTop = body.scrollHeight;
+  });
+
+  document.addEventListener('plugin:finish-inline-diff-streaming', () => {
+    inlineDiffGenerated.classList.remove('streaming');
+    inlineDiffAction.classList.remove('generating');
+    // Enable Accept button now that generation is complete
+    inlineDiffAccept.disabled = false;
+  });
+
+  document.addEventListener('plugin:close-inline-diff', () => {
+    closeInlineDiff('reject');
+  });
+
+  document.addEventListener('plugin:set-inline-diff-abort', (e) => {
+    inlineDiffOnAbort = e.detail.abort;
+  });
+
+  inlineDiffReject.addEventListener('click', () => closeInlineDiff('reject'));
+  inlineDiffAccept.addEventListener('click', () => closeInlineDiff('accept'));
+
+  // Close panel when clicking outside of it (allows clicking tabs, sidebar, etc.)
+  document.addEventListener('mousedown', (e) => {
+    if (inlineDiffPanel.classList.contains('hidden')) return;
+    if (!inlineDiffPanel.contains(e.target)) {
+      closeInlineDiff('reject');
+    }
+  });
+
+  // Keyboard shortcuts for inline diff
+  document.addEventListener('keydown', (e) => {
+    if (inlineDiffPanel.classList.contains('hidden')) return;
+
+    // Cmd/Ctrl + Enter to accept
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      closeInlineDiff('accept');
+    }
+    // Escape to reject/close
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeInlineDiff('reject');
+    }
+  });
+
+  // Inline Prompt Input handlers
+  const inlinePrompt = document.getElementById('inline-prompt');
+  const inlinePromptInput = document.getElementById('inline-prompt-input');
+  const inlinePromptSubmit = document.getElementById('inline-prompt-submit');
+  const inlinePromptClose = document.getElementById('inline-prompt-close');
+  let inlinePromptResolve = null;
+
+  function positionInlinePrompt() {
+    const editorRect = editor.getBoundingClientRect();
+
+    // Width similar to inline diff
+    const promptWidth = Math.min(550, Math.max(400, editorRect.width - 100));
+    inlinePrompt.style.width = promptWidth + 'px';
+
+    // Center horizontally relative to editor
+    let left = editorRect.left + (editorRect.width - promptWidth) / 2;
+    left = Math.max(20, Math.min(left, window.innerWidth - promptWidth - 20));
+    inlinePrompt.style.left = left + 'px';
+
+    // Position near top of editor
+    let top = editorRect.top + 60;
+    top = Math.max(60, Math.min(top, 100));
+    inlinePrompt.style.top = top + 'px';
+  }
+
+  function closeInlinePrompt(value) {
+    inlinePrompt.classList.add('hidden');
+    inlinePromptInput.value = '';
+    if (inlinePromptResolve) {
+      inlinePromptResolve(value);
+      inlinePromptResolve = null;
+    }
+  }
+
+  document.addEventListener('plugin:show-inline-prompt', (e) => {
+    const { placeholder, resolve } = e.detail;
+
+    // Reject any pending promise before opening new dialog
+    if (inlinePromptResolve) {
+      inlinePromptResolve(null);
+      inlinePromptResolve = null;
+    }
+
+    inlinePromptInput.placeholder = placeholder || 'Edit with AI...';
+    inlinePromptResolve = resolve;
+    positionInlinePrompt();
+    inlinePrompt.classList.remove('hidden');
+    inlinePromptInput.focus();
+  });
+
+  document.addEventListener('plugin:close-inline-prompt', () => {
+    closeInlinePrompt(null);
+  });
+
+  inlinePromptSubmit.addEventListener('click', () => {
+    const value = inlinePromptInput.value.trim();
+    if (value) {
+      closeInlinePrompt(value);
+    }
+  });
+
+  inlinePromptClose.addEventListener('click', () => {
+    closeInlinePrompt(null);
+  });
+
+  // Auto-resize textarea as user types
+  inlinePromptInput.addEventListener('input', () => {
+    inlinePromptInput.style.height = 'auto';
+    inlinePromptInput.style.height = Math.min(inlinePromptInput.scrollHeight, 150) + 'px';
+  });
+
+  inlinePromptInput.addEventListener('keydown', (e) => {
+    // Enter to submit (Shift+Enter for new line)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const value = inlinePromptInput.value.trim();
+      if (value) {
+        closeInlinePrompt(value);
+      }
+    }
+    // Escape to cancel
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeInlinePrompt(null);
+    }
+  });
+
+  // Notification handlers
+  const notificationContainer = document.getElementById('notification-container');
+
+  document.addEventListener('plugin:notification', (e) => {
+    const { message, type } = e.detail;
+    const notification = document.createElement('div');
+    notification.className = `notification ${type || 'info'}`;
+    notification.textContent = message;
+    notificationContainer.appendChild(notification);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
+  });
+
+  // Initialize plugins
+  if (window.initializePlugins) {
+    window.initializePlugins(editor);
+  }
 
   // Handle drag and drop
   document.body.addEventListener('dragover', (e) => {

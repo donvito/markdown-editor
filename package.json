@@ -9,7 +9,8 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:all": "electron-builder --win --mac"
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --mac --linux"
   },
   "build": {
     "appId": "com.donvitocodes.markdown-editor.app",
@@ -23,7 +24,9 @@
       "renderer.js",
       "index.html",
       "styles.css",
-      "icon.png"
+      "icon.png",
+      "src/**/*",
+      "plugins/**/*"
     ],
     "win": {
       "target": "nsis",
@@ -33,9 +36,15 @@
       "target": "dmg",
       "icon": "icon.png",
       "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "icon.png",
+      "category": "Office"
     }
   },
   "dependencies": {
+    "electron-store": "^8.1.0",
     "highlight.js": "^11.9.0",
     "marked": "^12.0.0",
     "marked-highlight": "^2.1.0"

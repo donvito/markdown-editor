@@ -59,6 +59,7 @@
               </div>
               <div class="status-bar">
                 <button id="toggle-line-numbers" class="status-btn" title="Toggle line numbers">Ln#</button>
+                <button id="toggle-word-wrap" class="status-btn active" title="Toggle word wrap">Wrap</button>
                 <span id="cursor-position">Ln 1, Col 1</span>
               </div>
             </div>
@@ -70,6 +71,93 @@
       </div>
     </main>
   </div>
+
+  <!-- Loading indicator for AI processing (small, non-blocking) -->
+  <div id="loading-indicator" class="loading-indicator hidden">
+    <div class="loading-spinner-small"></div>
+    <span id="loading-message">Processing...</span>
+  </div>
+
+  <!-- Prompt dialog (legacy, keeping for other uses) -->
+  <div id="prompt-dialog" class="prompt-dialog hidden">
+    <div class="prompt-dialog-overlay"></div>
+    <div class="prompt-dialog-content">
+      <h3 id="prompt-dialog-title">Enter prompt</h3>
+      <textarea id="prompt-dialog-input" placeholder="Enter your prompt..." rows="3"></textarea>
+      <div class="prompt-dialog-buttons">
+        <button id="prompt-dialog-cancel" class="prompt-btn cancel">Cancel</button>
+        <button id="prompt-dialog-ok" class="prompt-btn ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline AI Prompt Input -->
+  <div id="inline-prompt" class="inline-prompt hidden">
+    <div class="inline-prompt-input-row">
+      <textarea id="inline-prompt-input" placeholder="Edit with AI..." rows="1" autocomplete="off"></textarea>
+      <button id="inline-prompt-submit" class="inline-prompt-submit" title="Submit (Enter)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
+        </svg>
+      </button>
+      <button id="inline-prompt-close" class="inline-prompt-close" title="Close (Esc)">&times;</button>
+    </div>
+    <div class="inline-prompt-hint">
+      <kbd>Enter</kbd> to submit · <kbd>Shift+Enter</kbd> for new line · <kbd>Esc</kbd> to cancel
+    </div>
+  </div>
+
+  <!-- AI Review dialog -->
+  <div id="ai-review-dialog" class="ai-review-dialog hidden">
+    <div class="ai-review-overlay"></div>
+    <div class="ai-review-content">
+      <div class="ai-review-header">
+        <h3>Review AI Generated Text</h3>
+        <button id="ai-review-close" class="ai-review-close">&times;</button>
+      </div>
+      <div class="ai-review-body">
+        <div class="ai-review-section">
+          <label>Original:</label>
+          <div id="ai-review-original" class="ai-review-text original"></div>
+        </div>
+        <div class="ai-review-section">
+          <label>Generated:</label>
+          <div id="ai-review-generated" class="ai-review-text generated"></div>
+        </div>
+      </div>
+      <div class="ai-review-footer">
+        <button id="ai-review-regenerate" class="ai-review-btn regenerate">Regenerate</button>
+        <div class="ai-review-actions">
+          <button id="ai-review-reject" class="ai-review-btn reject">Reject</button>
+          <button id="ai-review-accept" class="ai-review-btn accept">Accept</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification container -->
+  <div id="notification-container" class="notification-container"></div>
+
+  <!-- Inline AI Diff Panel -->
+  <div id="inline-diff-panel" class="inline-diff-panel hidden">
+    <div class="inline-diff-header">
+      <span id="inline-diff-action" class="inline-diff-action">shorten</span>
+      <div class="inline-diff-buttons">
+        <button id="inline-diff-reject" class="inline-diff-btn reject">Reject <kbd>Esc</kbd></button>
+        <button id="inline-diff-accept" class="inline-diff-btn accept">Accept <kbd>⌘↩</kbd></button>
+      </div>
+    </div>
+    <div class="inline-diff-body">
+      <div id="inline-diff-original" class="inline-diff-text original"></div>
+      <div id="inline-diff-generated" class="inline-diff-text generated"></div>
+    </div>
+  </div>
+
+  <!-- Plugin scripts -->
+  <script src="src/renderer/plugin-api.js"></script>
+  <script src="src/renderer/plugin-host.js"></script>
+  <script src="src/renderer/settings-modal.js"></script>
+  <script src="plugins/ai-editor/plugin.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

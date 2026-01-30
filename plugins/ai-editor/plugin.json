@@ -1,0 +1,35 @@
+{
+  "id": "ai-editor",
+  "name": "AI Text Editor",
+  "version": "1.0.0",
+  "description": "AI-powered text transformations using OpenAI or compatible APIs (Ollama, LM Studio, etc.)",
+  "main": "plugin.js",
+  "settings": {
+    "provider": {
+      "type": "select",
+      "label": "Provider",
+      "options": ["OpenAI", "Ollama", "LM Studio", "Custom"],
+      "default": "OpenAI",
+      "description": "Select your AI provider"
+    },
+    "baseUrl": {
+      "type": "text",
+      "label": "API Base URL",
+      "description": "Auto-filled when you select a provider. Edit for custom endpoints.",
+      "default": "https://api.openai.com/v1"
+    },
+    "apiKey": {
+      "type": "password",
+      "label": "API Key",
+      "description": "Required for OpenAI. For Ollama/LM Studio, enter any value (e.g., 'none')",
+      "required": true,
+      "secure": true
+    },
+    "model": {
+      "type": "text",
+      "label": "Model",
+      "description": "OpenAI: gpt-4o, gpt-4o-mini | Ollama: llama3.2, mistral, codellama | LM Studio: check loaded model",
+      "default": "gpt-4o"
+    }
+  }
+}

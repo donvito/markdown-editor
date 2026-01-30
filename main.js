@@ -4,6 +4,11 @@ const fs = require('fs');
 const { Marked } = require('marked');
 const { markedHighlight } = require('marked-highlight');
 const hljs = require('highlight.js');
+const pluginManager = require('./src/main/plugin-manager');
+const { makeAIRequest, makeAIRequestStream } = require('./src/main/ai-service');
+
+let streamIdCounter = 0;
+const activeStreams = new Map();
 
 // Configure marked with syntax highlighting
 const marked = new Marked(
@@ -26,6 +31,7 @@ marked.setOptions({
 let mainWindow;
 let unsavedFiles = new Map(); // Track unsaved files in main process
 let isQuitting = false;
+let pluginContextMenuItems = new Map(); // Store plugin-registered context menu items
 
 function handleClose() {
   if (unsavedFiles.size === 0) {
@@ -60,6 +66,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // Don't show until ready
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -70,6 +77,12 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
+  // Show window maximized once ready (avoids animation)
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+  });
+
   // Handle window close with unsaved changes check
   mainWindow.on('close', (e) => {
     if (!isQuitting && unsavedFiles.size > 0) {
@@ -79,6 +92,14 @@ function createWindow() {
         mainWindow.close();
       }
     }
+  });
+
+  // Clean up active streams when window closes
+  mainWindow.on('closed', () => {
+    activeStreams.forEach((abort) => {
+      if (typeof abort === 'function') abort();
+    });
+    activeStreams.clear();
   });
 
   const menu = Menu.buildFromTemplate([
@@ -122,8 +143,26 @@ function createWindow() {
       ]
     },
     {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
       label: 'Help',
       submenu: [
+        {
+          label: 'Settings',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => mainWindow.webContents.send('open-settings')
+        },
+        { type: 'separator' },
         {
           label: 'About',
           click: () => {
@@ -245,7 +284,156 @@ ipcMain.on('all-saved-close', () => {
   mainWindow.close();
 });
 
-app.whenReady().then(createWindow);
+// Plugin IPC Handlers
+ipcMain.handle('plugin:list', () => {
+  return pluginManager.getPlugins();
+});
+
+ipcMain.handle('plugin:get-manifest', (event, pluginId) => {
+  return pluginManager.getManifest(pluginId);
+});
+
+ipcMain.handle('plugin:enable', (event, pluginId) => {
+  return pluginManager.enablePlugin(pluginId);
+});
+
+ipcMain.handle('plugin:disable', (event, pluginId) => {
+  return pluginManager.disablePlugin(pluginId);
+});
+
+ipcMain.handle('plugin:get-setting', (event, pluginId, key) => {
+  return pluginManager.getSetting(pluginId, key);
+});
+
+ipcMain.handle('plugin:set-setting', (event, pluginId, key, value, isSecure) => {
+  pluginManager.setSetting(pluginId, key, value, isSecure);
+  return { success: true };
+});
+
+ipcMain.handle('plugin:register-context-menu', (event, pluginId, items) => {
+  pluginContextMenuItems.set(pluginId, items);
+  return { success: true };
+});
+
+ipcMain.handle('plugin:ai-request', async (event, pluginId, endpoint, payload) => {
+  try {
+    const result = await makeAIRequest(pluginId, endpoint, payload);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Helper to safely send IPC messages (window may be closed)
+function safeSend(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
+// Streaming AI request handler
+ipcMain.handle('plugin:ai-request-stream', (event, pluginId, endpoint, payload) => {
+  const streamId = `stream-${++streamIdCounter}`;
+
+  const abort = makeAIRequestStream(
+    pluginId,
+    endpoint,
+    payload,
+    (chunk) => {
+      // Send chunk to renderer
+      safeSend('plugin:ai-stream-chunk', { streamId, chunk });
+    },
+    () => {
+      // Stream complete
+      safeSend('plugin:ai-stream-done', { streamId });
+      activeStreams.delete(streamId);
+    },
+    (error) => {
+      // Stream error
+      safeSend('plugin:ai-stream-error', { streamId, error: error.message });
+      activeStreams.delete(streamId);
+    }
+  );
+
+  // Only track stream if it actually started (abort function returned)
+  if (abort) {
+    activeStreams.set(streamId, abort);
+  }
+  return { streamId };
+});
+
+// Abort streaming request
+ipcMain.handle('plugin:ai-request-abort', (event, streamId) => {
+  const abort = activeStreams.get(streamId);
+  if (abort) {
+    abort();
+    activeStreams.delete(streamId);
+  }
+});
+
+// Context menu handler
+ipcMain.handle('show-context-menu', (event, selectionData) => {
+  const { selectedText, selectionStart, selectionEnd } = selectionData;
+
+  if (!selectedText || selectedText.length === 0) {
+    return;
+  }
+
+  const menuItems = [];
+
+  // Build menu from plugin registrations
+  pluginContextMenuItems.forEach((items, pluginId) => {
+    if (!pluginManager.isEnabled(pluginId)) return;
+
+    items.forEach(item => {
+      // Build label with shortcut if provided
+      let label = item.label;
+      if (item.shortcut) {
+        // Convert Mac shortcut to cross-platform for display
+        const shortcutDisplay = process.platform === 'darwin'
+          ? item.shortcut
+          : item.shortcut.replace('⌘', 'Ctrl+');
+        label = `${item.label}    ${shortcutDisplay}`;
+      }
+
+      menuItems.push({
+        label,
+        click: () => {
+          mainWindow.webContents.send('plugin:context-menu-action', {
+            pluginId,
+            actionId: item.id,
+            selectedText,
+            selectionStart,
+            selectionEnd
+          });
+        }
+      });
+    });
+
+    // Add separator between plugins
+    if (menuItems.length > 0) {
+      menuItems.push({ type: 'separator' });
+    }
+  });
+
+  // Remove trailing separator
+  if (menuItems.length > 0 && menuItems[menuItems.length - 1].type === 'separator') {
+    menuItems.pop();
+  }
+
+  if (menuItems.length === 0) {
+    return; // No plugin menu items registered
+  }
+
+  const menu = Menu.buildFromTemplate(menuItems);
+  menu.popup({ window: mainWindow });
+});
+
+app.whenReady().then(() => {
+  // Initialize plugin manager
+  pluginManager.initialize(__dirname);
+  createWindow();
+});
 
 // Handle app quit with unsaved changes check
 app.on('before-quit', (e) => {

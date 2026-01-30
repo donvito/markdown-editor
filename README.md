@@ -1,18 +1,10 @@
 # Markdown Editor
 
-A simple and lightweight Markdown editor for Windows and Mac
+A simple and lightweight Markdown editor with AI features for Windows, Mac, and Linux
 
 If you like this project, please consider supporting it 
 
 [![Donate](https://img.shields.io/badge/☕_Click_here_to_donate-ffdd00?style=flat&logoColor=black)](https://buymeacoffee.com/donvitocodes)
-
-## Screenshots
-
-### Light Mode
-![Markdown Editor - Light Mode](images/markdown-editor-light.png)
-
-### Dark Mode
-![Markdown Editor - Dark Mode](images/markdown-editor-dark.png)
 
 ## Features
 
@@ -21,11 +13,43 @@ If you like this project, please consider supporting it
 - **Syntax Highlighting** - Code blocks with syntax coloring for multiple languages
 - **Multi-Tab Support** - Open and work with multiple files simultaneously
 - **Sidebar** - Quick access to all open files
-- **Unsaved Changes Warning** - Prompts to save when closing tabs or the app
 - **Dark Mode** - Toggle between light and dark themes
-- **Line Numbers** - Optional line numbers in the editor
-- **Cursor Position** - Shows current line and column in status bar
-- **Cross-Platform** - Works on Mac, Windows, and Linux
+- **AI Features** (see below)
+
+### Light Mode
+![Markdown Editor - Light Mode](images/markdown-editor-light.png)
+
+## AI Features
+
+The editor includes a built-in AI plugin for intelligent text editing. Select any text and right-click to access AI-powered transformations:
+
+- **Generate from prompt** - Describe what you want and let AI generate it
+- **Make shorter** - Condense text while keeping key information
+- **Make longer** - Expand text with more detail and examples
+- **More formal tone** - Rewrite in a professional tone
+- **More casual tone** - Rewrite in a conversational tone
+- **Fix grammar & spelling** - Correct errors automatically
+
+### Generate text using AI
+![Markdown Editor - AI Generate](images/mde-blog.png)
+
+### Translate text using AI
+![Markdown Editor - AI Generate](images/mde-translate.png)
+
+### Supported AI Providers
+
+Configure any OpenAI-compatible API in Settings:
+- **OpenAI** - GPT-4o, GPT-4o-mini
+- **Ollama** - Local models (Llama, Mistral, etc.)
+- **LM Studio** - Local models
+- **Custom** - Any OpenAI-compatible endpoint
+
+### Configure your AI provider
+
+1. Open **Settings** (`Cmd/Ctrl+,`)
+2. Go to the **Plugins** tab
+3. Select your AI provider and enter your API key
+4. Choose your preferred model
 
 ## Installation
 
@@ -53,21 +77,6 @@ npm run build:mac
 # All platforms
 npm run build:all
 ```
-
-## Keyboard Shortcuts
-
-- `Ctrl+N` / `Cmd+N` - New file
-- `Ctrl+O` / `Cmd+O` - Open file
-- `Ctrl+S` / `Cmd+S` - Save file
-- `Ctrl+Shift+S` / `Cmd+Shift+S` - Save As
-- `Ctrl+W` / `Cmd+W` - Close current tab
-- `Ctrl+Q` / `Cmd+Q` - Quit application
-
-## Dependencies
-
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop app framework
-- [Marked](https://marked.js.org/) - Markdown parser
-- [highlight.js](https://highlightjs.org/) - Syntax highlighting
 
 ## License
 
