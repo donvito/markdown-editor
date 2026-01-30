@@ -91,8 +91,51 @@
     </div>
   </div>
 
+  <!-- AI Review dialog -->
+  <div id="ai-review-dialog" class="ai-review-dialog hidden">
+    <div class="ai-review-overlay"></div>
+    <div class="ai-review-content">
+      <div class="ai-review-header">
+        <h3>Review AI Generated Text</h3>
+        <button id="ai-review-close" class="ai-review-close">&times;</button>
+      </div>
+      <div class="ai-review-body">
+        <div class="ai-review-section">
+          <label>Original:</label>
+          <div id="ai-review-original" class="ai-review-text original"></div>
+        </div>
+        <div class="ai-review-section">
+          <label>Generated:</label>
+          <div id="ai-review-generated" class="ai-review-text generated"></div>
+        </div>
+      </div>
+      <div class="ai-review-footer">
+        <button id="ai-review-regenerate" class="ai-review-btn regenerate">Regenerate</button>
+        <div class="ai-review-actions">
+          <button id="ai-review-reject" class="ai-review-btn reject">Reject</button>
+          <button id="ai-review-accept" class="ai-review-btn accept">Accept</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification container -->
   <div id="notification-container" class="notification-container"></div>
+
+  <!-- Inline AI Diff Panel -->
+  <div id="inline-diff-panel" class="inline-diff-panel hidden">
+    <div class="inline-diff-header">
+      <span id="inline-diff-action" class="inline-diff-action">shorten</span>
+      <div class="inline-diff-buttons">
+        <button id="inline-diff-reject" class="inline-diff-btn reject">Reject <kbd>Esc</kbd></button>
+        <button id="inline-diff-accept" class="inline-diff-btn accept">Accept <kbd>⌘↩</kbd></button>
+      </div>
+    </div>
+    <div class="inline-diff-body">
+      <div id="inline-diff-original" class="inline-diff-text original"></div>
+      <div id="inline-diff-generated" class="inline-diff-text generated"></div>
+    </div>
+  </div>
 
   <!-- Plugin scripts -->
   <script src="src/renderer/plugin-api.js"></script>

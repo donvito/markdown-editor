@@ -1,4 +1,4 @@
-// AI Editor Plugin - AI-powered text transformations with streaming
+// AI Editor Plugin - AI-powered text transformations with inline streaming
 class AIEditorPlugin {
   constructor(api) {
     this.api = api;
@@ -32,22 +32,27 @@ class AIEditorPlugin {
       return;
     }
 
-    // Get the instruction based on action
-    let instruction;
+    // Get the instruction and label based on action
+    let instruction, actionLabel;
     switch (actionId) {
       case 'shorter':
+        actionLabel = 'shorten';
         instruction = 'Make this text more concise while keeping the key information. Only return the shortened text, no explanations.';
         break;
       case 'longer':
+        actionLabel = 'expand';
         instruction = 'Expand this text with more detail, examples, and explanation. Only return the expanded text, no explanations.';
         break;
       case 'formal':
+        actionLabel = 'formal tone';
         instruction = 'Rewrite this in a more formal, professional tone. Only return the rewritten text, no explanations.';
         break;
       case 'casual':
+        actionLabel = 'casual tone';
         instruction = 'Rewrite this in a more casual, conversational tone. Only return the rewritten text, no explanations.';
         break;
       case 'fix-grammar':
+        actionLabel = 'fix grammar';
         instruction = 'Fix any grammar, spelling, or punctuation errors in this text. Only return the corrected text, no explanations.';
         break;
       default:
@@ -55,14 +60,13 @@ class AIEditorPlugin {
         return;
     }
 
-    await this.transformStream(selectedText, instruction);
+    await this.transformWithInlineDiff(selectedText, instruction, actionLabel);
   }
 
-  async transformStream(text, instruction) {
-    this.api.showLoading('Processing with AI...');
-
-    // Start streaming replacement (deletes selected text)
-    this.api.startStreamingReplace();
+  // Stream text into inline diff panel
+  async transformWithInlineDiff(originalText, instruction, actionLabel) {
+    // Show the inline diff panel immediately (starts streaming)
+    const panelPromise = this.api.startInlineDiff(actionLabel, originalText);
 
     try {
       await this.api.makeAIRequestStream(
@@ -73,22 +77,29 @@ class AIEditorPlugin {
           },
           {
             role: 'user',
-            content: `${instruction}\n\nText to transform:\n${text}`
+            content: `${instruction}\n\nText to transform:\n${originalText}`
           }
         ],
-        (chunk) => {
-          // Append each chunk as it arrives
-          this.api.appendStreamingText(chunk);
+        (chunk, fullText) => {
+          // Update the inline diff panel with streaming text
+          this.api.updateInlineDiff(fullText);
         }
       );
 
-      this.api.endStreaming();
-      this.api.showNotification('Text updated successfully', 'success');
+      // Mark streaming as complete
+      this.api.finishInlineDiffStreaming();
+
+      // Wait for user decision (accept/reject/keep)
+      const decision = await panelPromise;
+
+      if (decision === 'accept' || decision === 'keep') {
+        this.api.showNotification('Text updated successfully', 'success');
+      }
+
     } catch (error) {
       console.error('AI Editor error:', error);
       this.api.showNotification(`Error: ${error.message}`, 'error');
-    } finally {
-      this.api.hideLoading();
+      this.api.closeInlineDiff();
     }
   }
 
@@ -100,10 +111,8 @@ class AIEditorPlugin {
       return; // User cancelled
     }
 
-    this.api.showLoading('Generating with AI...');
-
-    // Start streaming replacement
-    this.api.startStreamingReplace();
+    // Show the inline diff panel immediately
+    const panelPromise = this.api.startInlineDiff('generate', selectedText || '(from prompt)');
 
     try {
       const fullPrompt = selectedText
@@ -121,18 +130,23 @@ class AIEditorPlugin {
             content: fullPrompt
           }
         ],
-        (chunk) => {
-          this.api.appendStreamingText(chunk);
+        (chunk, fullText) => {
+          this.api.updateInlineDiff(fullText);
         }
       );
 
-      this.api.endStreaming();
-      this.api.showNotification('Text generated successfully', 'success');
+      this.api.finishInlineDiffStreaming();
+
+      const decision = await panelPromise;
+
+      if (decision === 'accept' || decision === 'keep') {
+        this.api.showNotification('Text generated successfully', 'success');
+      }
+
     } catch (error) {
       console.error('AI Editor error:', error);
       this.api.showNotification(`Error: ${error.message}`, 'error');
-    } finally {
-      this.api.hideLoading();
+      this.api.closeInlineDiff();
     }
   }
 

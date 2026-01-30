@@ -189,6 +189,47 @@ class PluginAPI {
       }));
     });
   }
+
+  // Show review dialog for AI-generated text
+  // Returns: 'accept', 'reject', or 'regenerate'
+  async showReview(original, generated) {
+    return new Promise((resolve) => {
+      document.dispatchEvent(new CustomEvent('plugin:show-review', {
+        detail: { original, generated, resolve }
+      }));
+    });
+  }
+
+  // Start inline diff panel for streaming AI generation
+  // Returns an object with methods to update and close the panel
+  startInlineDiff(actionLabel, originalText) {
+    return new Promise((resolve) => {
+      document.dispatchEvent(new CustomEvent('plugin:start-inline-diff', {
+        detail: {
+          actionLabel,
+          originalText,
+          resolve
+        }
+      }));
+    });
+  }
+
+  // Update the generated text in the inline diff panel (for streaming)
+  updateInlineDiff(text) {
+    document.dispatchEvent(new CustomEvent('plugin:update-inline-diff', {
+      detail: { text }
+    }));
+  }
+
+  // Mark streaming as complete (removes cursor animation)
+  finishInlineDiffStreaming() {
+    document.dispatchEvent(new CustomEvent('plugin:finish-inline-diff-streaming'));
+  }
+
+  // Close the inline diff panel programmatically
+  closeInlineDiff() {
+    document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
+  }
 }
 
 // Export for use by plugin host

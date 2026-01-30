@@ -807,6 +807,157 @@ document.addEventListener('DOMContentLoaded', () => {
     promptDialogCancel.click();
   });
 
+  // AI Review dialog handlers
+  const aiReviewDialog = document.getElementById('ai-review-dialog');
+  const aiReviewOriginal = document.getElementById('ai-review-original');
+  const aiReviewGenerated = document.getElementById('ai-review-generated');
+  const aiReviewClose = document.getElementById('ai-review-close');
+  const aiReviewRegenerate = document.getElementById('ai-review-regenerate');
+  const aiReviewReject = document.getElementById('ai-review-reject');
+  const aiReviewAccept = document.getElementById('ai-review-accept');
+  let aiReviewResolve = null;
+
+  document.addEventListener('plugin:show-review', (e) => {
+    const { original, generated, resolve } = e.detail;
+    aiReviewOriginal.textContent = original || '(empty)';
+    aiReviewGenerated.textContent = generated || '(empty)';
+    aiReviewResolve = resolve;
+    aiReviewDialog.classList.remove('hidden');
+  });
+
+  function closeAiReview(action) {
+    aiReviewDialog.classList.add('hidden');
+    if (aiReviewResolve) {
+      aiReviewResolve(action);
+      aiReviewResolve = null;
+    }
+  }
+
+  aiReviewClose.addEventListener('click', () => closeAiReview('reject'));
+  aiReviewReject.addEventListener('click', () => closeAiReview('reject'));
+  aiReviewAccept.addEventListener('click', () => closeAiReview('accept'));
+  aiReviewRegenerate.addEventListener('click', () => closeAiReview('regenerate'));
+
+  aiReviewDialog.querySelector('.ai-review-overlay').addEventListener('click', () => {
+    closeAiReview('reject');
+  });
+
+  // Escape key to close review dialog
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !aiReviewDialog.classList.contains('hidden')) {
+      closeAiReview('reject');
+    }
+  });
+
+  // Inline Diff Panel handlers
+  const inlineDiffPanel = document.getElementById('inline-diff-panel');
+  const inlineDiffAction = document.getElementById('inline-diff-action');
+  const inlineDiffOriginal = document.getElementById('inline-diff-original');
+  const inlineDiffGenerated = document.getElementById('inline-diff-generated');
+  const inlineDiffReject = document.getElementById('inline-diff-reject');
+  const inlineDiffAccept = document.getElementById('inline-diff-accept');
+
+  let inlineDiffResolve = null;
+  let inlineDiffOriginalText = '';
+  let inlineDiffGeneratedText = '';
+  let inlineDiffSelectionStart = 0;
+  let inlineDiffSelectionEnd = 0;
+
+  function positionInlineDiffPanel() {
+    // Get the editor's position
+    const editorRect = editor.getBoundingClientRect();
+
+    // Position panel width - wider, but constrained to editor width
+    const panelWidth = Math.min(650, Math.max(500, editorRect.width - 60));
+    inlineDiffPanel.style.width = panelWidth + 'px';
+
+    // Center horizontally relative to editor
+    let left = editorRect.left + (editorRect.width - panelWidth) / 2;
+    // Keep within viewport
+    left = Math.max(20, Math.min(left, window.innerWidth - panelWidth - 20));
+    inlineDiffPanel.style.left = left + 'px';
+
+    // Position vertically - try to show near top of editor area
+    let top = editorRect.top + 60;
+
+    // Keep within viewport with margin
+    top = Math.max(60, Math.min(top, 100));
+    inlineDiffPanel.style.top = top + 'px';
+  }
+
+  function closeInlineDiff(action) {
+    inlineDiffPanel.classList.add('hidden');
+    inlineDiffGenerated.classList.remove('streaming');
+
+    if (action === 'accept') {
+      // Replace the selection with generated text
+      editor.focus();
+      editor.selectionStart = inlineDiffSelectionStart;
+      editor.selectionEnd = inlineDiffSelectionEnd;
+      document.execCommand('insertText', false, inlineDiffGeneratedText);
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    if (inlineDiffResolve) {
+      inlineDiffResolve(action);
+      inlineDiffResolve = null;
+    }
+  }
+
+  document.addEventListener('plugin:start-inline-diff', (e) => {
+    const { actionLabel, originalText, resolve } = e.detail;
+
+    inlineDiffAction.textContent = actionLabel;
+    inlineDiffOriginal.textContent = originalText || '(empty)';
+    inlineDiffGenerated.textContent = '';
+    inlineDiffGenerated.classList.add('streaming');
+    inlineDiffResolve = resolve;
+    inlineDiffOriginalText = originalText;
+    inlineDiffGeneratedText = '';
+    inlineDiffSelectionStart = editor.selectionStart;
+    inlineDiffSelectionEnd = editor.selectionEnd;
+
+    positionInlineDiffPanel();
+    inlineDiffPanel.classList.remove('hidden');
+  });
+
+  document.addEventListener('plugin:update-inline-diff', (e) => {
+    const { text } = e.detail;
+    inlineDiffGeneratedText = text;
+    inlineDiffGenerated.textContent = text;
+
+    // Auto-scroll to show latest content
+    const body = inlineDiffPanel.querySelector('.inline-diff-body');
+    body.scrollTop = body.scrollHeight;
+  });
+
+  document.addEventListener('plugin:finish-inline-diff-streaming', () => {
+    inlineDiffGenerated.classList.remove('streaming');
+  });
+
+  document.addEventListener('plugin:close-inline-diff', () => {
+    closeInlineDiff('reject');
+  });
+
+  inlineDiffReject.addEventListener('click', () => closeInlineDiff('reject'));
+  inlineDiffAccept.addEventListener('click', () => closeInlineDiff('accept'));
+
+  // Keyboard shortcuts for inline diff
+  document.addEventListener('keydown', (e) => {
+    if (inlineDiffPanel.classList.contains('hidden')) return;
+
+    // Cmd/Ctrl + Enter to accept
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      closeInlineDiff('accept');
+    }
+    // Escape to reject/close
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeInlineDiff('reject');
+    }
+  });
+
   // Notification handlers
   const notificationContainer = document.getElementById('notification-container');
 
