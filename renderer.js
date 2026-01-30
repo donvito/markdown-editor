@@ -461,6 +461,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Editor input handler with debounced preview update
   let debounceTimer;
+  let isStreaming = false;
+  let lastStreamUpdate = 0;
+  const STREAM_THROTTLE = 50; // Update preview every 50ms during streaming
+
   editor.addEventListener('input', () => {
     if (activeFilePath && openFiles.has(activeFilePath)) {
       openFiles.get(activeFilePath).content = editor.value;
@@ -469,8 +473,29 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLineNumbers();
     updateCursorPosition();
 
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(updatePreview, 150);
+    if (isStreaming) {
+      // Throttle updates during streaming for smoother preview
+      const now = Date.now();
+      if (now - lastStreamUpdate > STREAM_THROTTLE) {
+        lastStreamUpdate = now;
+        updatePreview();
+      }
+    } else {
+      // Normal debounce for regular typing
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updatePreview, 150);
+    }
+  });
+
+  // Listen for streaming state changes from plugins
+  document.addEventListener('plugin:streaming-start', () => {
+    isStreaming = true;
+    lastStreamUpdate = 0;
+  });
+
+  document.addEventListener('plugin:streaming-end', () => {
+    isStreaming = false;
+    updatePreview(); // Final update when streaming ends
   });
 
   // Toggle buttons
@@ -597,6 +622,116 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // Handle right-click context menu for AI actions
+  editor.addEventListener('contextmenu', (e) => {
+    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+
+    if (selectedText.length > 0) {
+      e.preventDefault();
+      window.electronAPI.showContextMenu({
+        selectedText,
+        selectionStart: editor.selectionStart,
+        selectionEnd: editor.selectionEnd
+      });
+    }
+  });
+
+  // Handle plugin context menu actions
+  window.pluginAPI.onContextMenuAction((data) => {
+    // Dispatch event for plugin host to handle
+    document.dispatchEvent(new CustomEvent('plugin:context-menu-action', { detail: data }));
+  });
+
+  // Handle open settings
+  window.electronAPI.onOpenSettings(() => {
+    document.dispatchEvent(new CustomEvent('open-settings'));
+  });
+
+  // Loading indicator handlers (small, non-blocking)
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const loadingMessage = document.getElementById('loading-message');
+
+  document.addEventListener('plugin:show-loading', (e) => {
+    loadingMessage.textContent = e.detail.message || 'Processing...';
+    loadingIndicator.classList.remove('hidden');
+  });
+
+  document.addEventListener('plugin:hide-loading', () => {
+    loadingIndicator.classList.add('hidden');
+  });
+
+  // Prompt dialog handlers
+  const promptDialog = document.getElementById('prompt-dialog');
+  const promptDialogTitle = document.getElementById('prompt-dialog-title');
+  const promptDialogInput = document.getElementById('prompt-dialog-input');
+  const promptDialogCancel = document.getElementById('prompt-dialog-cancel');
+  const promptDialogOk = document.getElementById('prompt-dialog-ok');
+  let promptResolve = null;
+
+  document.addEventListener('plugin:show-prompt', (e) => {
+    const { title, placeholder, resolve } = e.detail;
+    promptDialogTitle.textContent = title || 'Enter prompt';
+    promptDialogInput.placeholder = placeholder || '';
+    promptDialogInput.value = '';
+    promptResolve = resolve;
+    promptDialog.classList.remove('hidden');
+    promptDialogInput.focus();
+  });
+
+  promptDialogCancel.addEventListener('click', () => {
+    promptDialog.classList.add('hidden');
+    if (promptResolve) {
+      promptResolve(null);
+      promptResolve = null;
+    }
+  });
+
+  promptDialogOk.addEventListener('click', () => {
+    promptDialog.classList.add('hidden');
+    if (promptResolve) {
+      promptResolve(promptDialogInput.value.trim() || null);
+      promptResolve = null;
+    }
+  });
+
+  // Allow Enter to submit (Shift+Enter for newline)
+  promptDialogInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      promptDialogOk.click();
+    } else if (e.key === 'Escape') {
+      promptDialogCancel.click();
+    }
+  });
+
+  // Close prompt on overlay click
+  promptDialog.querySelector('.prompt-dialog-overlay').addEventListener('click', () => {
+    promptDialogCancel.click();
+  });
+
+  // Notification handlers
+  const notificationContainer = document.getElementById('notification-container');
+
+  document.addEventListener('plugin:notification', (e) => {
+    const { message, type } = e.detail;
+    const notification = document.createElement('div');
+    notification.className = `notification ${type || 'info'}`;
+    notification.textContent = message;
+    notificationContainer.appendChild(notification);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
+  });
+
+  // Initialize plugins
+  if (window.initializePlugins) {
+    window.initializePlugins(editor);
+  }
 
   // Handle drag and drop
   document.body.addEventListener('dragover', (e) => {

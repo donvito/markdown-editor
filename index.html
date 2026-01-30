@@ -70,6 +70,34 @@
       </div>
     </main>
   </div>
+
+  <!-- Loading indicator for AI processing (small, non-blocking) -->
+  <div id="loading-indicator" class="loading-indicator hidden">
+    <div class="loading-spinner-small"></div>
+    <span id="loading-message">Processing...</span>
+  </div>
+
+  <!-- Prompt dialog -->
+  <div id="prompt-dialog" class="prompt-dialog hidden">
+    <div class="prompt-dialog-overlay"></div>
+    <div class="prompt-dialog-content">
+      <h3 id="prompt-dialog-title">Enter prompt</h3>
+      <textarea id="prompt-dialog-input" placeholder="Enter your prompt..." rows="3"></textarea>
+      <div class="prompt-dialog-buttons">
+        <button id="prompt-dialog-cancel" class="prompt-btn cancel">Cancel</button>
+        <button id="prompt-dialog-ok" class="prompt-btn ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification container -->
+  <div id="notification-container" class="notification-container"></div>
+
+  <!-- Plugin scripts -->
+  <script src="src/renderer/plugin-api.js"></script>
+  <script src="src/renderer/plugin-host.js"></script>
+  <script src="src/renderer/settings-modal.js"></script>
+  <script src="plugins/ai-editor/plugin.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

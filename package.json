@@ -23,7 +23,9 @@
       "renderer.js",
       "index.html",
       "styles.css",
-      "icon.png"
+      "icon.png",
+      "src/**/*",
+      "plugins/**/*"
     ],
     "win": {
       "target": "nsis",
@@ -36,6 +38,7 @@
     }
   },
   "dependencies": {
+    "electron-store": "^8.1.0",
     "highlight.js": "^11.9.0",
     "marked": "^12.0.0",
     "marked-highlight": "^2.1.0"

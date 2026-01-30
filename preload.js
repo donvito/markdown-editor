@@ -18,5 +18,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notifyFileUnsaved: (filePath, fileName) => ipcRenderer.send('file-unsaved', filePath, fileName),
   notifyFileSaved: (filePath) => ipcRenderer.send('file-saved-state', filePath),
   notifyFileClosed: (filePath) => ipcRenderer.send('file-closed', filePath),
-  openExternal: (url) => ipcRenderer.invoke('open-external', url)
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  showContextMenu: (data) => ipcRenderer.invoke('show-context-menu', data),
+  onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback())
+});
+
+// Plugin API for plugin system
+contextBridge.exposeInMainWorld('pluginAPI', {
+  // Plugin lifecycle
+  getPlugins: () => ipcRenderer.invoke('plugin:list'),
+  getManifest: (pluginId) => ipcRenderer.invoke('plugin:get-manifest', pluginId),
+  enablePlugin: (pluginId) => ipcRenderer.invoke('plugin:enable', pluginId),
+  disablePlugin: (pluginId) => ipcRenderer.invoke('plugin:disable', pluginId),
+
+  // Settings
+  getSetting: (pluginId, key) => ipcRenderer.invoke('plugin:get-setting', pluginId, key),
+  setSetting: (pluginId, key, value, isSecure) =>
+    ipcRenderer.invoke('plugin:set-setting', pluginId, key, value, isSecure),
+
+  // Context menu
+  registerContextMenuItems: (pluginId, items) =>
+    ipcRenderer.invoke('plugin:register-context-menu', pluginId, items),
+  onContextMenuAction: (callback) =>
+    ipcRenderer.on('plugin:context-menu-action', (event, data) => callback(data)),
+
+  // AI requests (proxied through main process for security)
+  makeAIRequest: (pluginId, endpoint, payload) =>
+    ipcRenderer.invoke('plugin:ai-request', pluginId, endpoint, payload),
+
+  // Streaming AI requests
+  makeAIRequestStream: (pluginId, endpoint, payload) =>
+    ipcRenderer.invoke('plugin:ai-request-stream', pluginId, endpoint, payload),
+  abortAIRequestStream: (streamId) =>
+    ipcRenderer.invoke('plugin:ai-request-abort', streamId),
+  onAIStreamChunk: (callback) =>
+    ipcRenderer.on('plugin:ai-stream-chunk', (event, data) => callback(data)),
+  onAIStreamDone: (callback) =>
+    ipcRenderer.on('plugin:ai-stream-done', (event, data) => callback(data)),
+  onAIStreamError: (callback) =>
+    ipcRenderer.on('plugin:ai-stream-error', (event, data) => callback(data))
 });
