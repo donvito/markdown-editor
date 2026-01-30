@@ -6,14 +6,6 @@ If you like this project, please consider supporting it
 
 [![Donate](https://img.shields.io/badge/☕_Click_here_to_donate-ffdd00?style=flat&logoColor=black)](https://buymeacoffee.com/donvitocodes)
 
-## Screenshots
-
-### Light Mode
-![Markdown Editor - Light Mode](images/markdown-editor-light.png)
-
-### Dark Mode
-![Markdown Editor - Dark Mode](images/markdown-editor-dark.png)
-
 ## Features
 
 - **Live Preview** - Real-time preview of Markdown content as you type
@@ -29,6 +21,9 @@ If you like this project, please consider supporting it
 - **Cross-Platform** - Works on Mac, Windows, and Linux
 - **AI-Powered Editing** - Transform text using AI (see below)
 
+### Light Mode
+![Markdown Editor - Light Mode](images/markdown-editor-light.png)
+
 ## AI Features
 
 The editor includes a built-in AI plugin for intelligent text editing. Select any text and right-click to access AI-powered transformations:
@@ -39,6 +34,13 @@ The editor includes a built-in AI plugin for intelligent text editing. Select an
 - **More formal tone** - Rewrite in a professional tone
 - **More casual tone** - Rewrite in a conversational tone
 - **Fix grammar & spelling** - Correct errors automatically
+
+### Generate text using AI
+![Markdown Editor - AI Generate](images/mde-blog.png)
+
+### Translate text using AI
+![Markdown Editor - AI Generate](images/mde-translate.png)
+
 
 ### Inline Streaming Preview
 
