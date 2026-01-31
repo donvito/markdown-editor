@@ -45,24 +45,32 @@ header h1 {
   gap: 8px;
 }
 
-.toolbar button {
-  padding: 6px 12px;
-  background-color: #333;
-  color: white;
+.toolbar-icon-btn {
+  padding: 6px;
+  background-color: transparent;
+  color: #555;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 13px;
-  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, color 0.15s;
 }
 
-.toolbar button:hover:not(:disabled) {
-  background-color: #555;
+.toolbar-icon-btn:hover:not(:disabled) {
+  background-color: #e8e8e8;
+  color: #333;
 }
 
-.toolbar button:disabled {
-  background-color: #ccc;
+.toolbar-icon-btn:disabled {
+  color: #ccc;
   cursor: not-allowed;
+}
+
+.toolbar-icon-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .toolbar-separator {
@@ -1015,17 +1023,17 @@ body.dark header h1 {
   color: #e0e0e0;
 }
 
-body.dark .toolbar button {
-  background-color: #555;
+body.dark .toolbar-icon-btn {
+  color: #ccc;
 }
 
-body.dark .toolbar button:hover:not(:disabled) {
-  background-color: #666;
+body.dark .toolbar-icon-btn:hover:not(:disabled) {
+  background-color: #3d3d3d;
+  color: #fff;
 }
 
-body.dark .toolbar button:disabled {
-  background-color: #444;
-  color: #777;
+body.dark .toolbar-icon-btn:disabled {
+  color: #555;
 }
 
 body.dark .toggle-group {
