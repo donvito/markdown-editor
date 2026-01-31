@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let sidebarWidth = parseInt(localStorage.getItem('sidebarWidth') || '200', 10);
   let rightSidebarWidth = parseInt(localStorage.getItem('rightSidebarWidth') || '220', 10);
 
+  // Shared regex for matching YAML frontmatter
+  const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
+
   // Utility function to escape HTML special characters
   function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -566,7 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Strip frontmatter before parsing headings (same as preview)
     // But track the frontmatter length to adjust charIndex for editor navigation
     let content = fileData.content;
-    const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
     const frontmatterMatch = content.match(frontmatterRegex);
     const frontmatterLength = frontmatterMatch ? frontmatterMatch[0].length : 0;
     content = content.replace(frontmatterRegex, '');
@@ -1311,7 +1313,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fileData) {
       // Strip frontmatter (YAML between --- markers at the start)
       let content = fileData.content;
-      const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
       content = content.replace(frontmatterRegex, '');
 
       window.electronAPI.parseMarkdown(content).then((html) => {
@@ -1361,8 +1362,8 @@ document.addEventListener('DOMContentLoaded', () => {
       li.innerHTML = `
         <span class="file-icon">📄</span>
         <div class="file-info">
-          <span class="file-name">${getFileName(filePath)}</span>
-          ${parentFolder ? `<span class="file-path">${parentFolder}</span>` : ''}
+          <span class="file-name">${escapeHtml(getFileName(filePath))}</span>
+          ${parentFolder ? `<span class="file-path">${escapeHtml(parentFolder)}</span>` : ''}
         </div>
         ${fileData.unsaved ? '<span class="unsaved-dot"></span>' : ''}
         <button class="close-file" title="Close file">×</button>
@@ -1446,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="rename-dialog-overlay"></div>
       <div class="rename-dialog-content">
         <h3>Rename File</h3>
-        <input type="text" class="rename-input" value="${fileName}" />
+        <input type="text" class="rename-input" value="${escapeHtml(fileName)}" />
         <div class="rename-dialog-buttons">
           <button class="rename-btn cancel">Cancel</button>
           <button class="rename-btn ok">Rename</button>
@@ -1526,8 +1527,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const parentFolder = getParentFolder(filePath);
       tab.innerHTML = `
         <div class="tab-info">
-          <span class="tab-name">${getFileName(filePath)}</span>
-          ${parentFolder ? `<span class="tab-path">${parentFolder}</span>` : ''}
+          <span class="tab-name">${escapeHtml(getFileName(filePath))}</span>
+          ${parentFolder ? `<span class="tab-path">${escapeHtml(parentFolder)}</span>` : ''}
         </div>
         ${fileData.unsaved ? '<span class="unsaved-indicator"></span>' : ''}
         <button class="close-tab" title="Close">×</button>
