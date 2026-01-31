@@ -985,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fileName = getFileName(filePath);
     fileNameSpan.textContent = fileData.unsaved ? `${fileName} (unsaved)` : fileName;
-    document.title = `${fileName} - Markdown Viewer`;
+    document.title = `${fileName} - Markdown Editor`;
 
     saveBtn.disabled = !fileData.unsaved;
 
