@@ -1,6 +1,8 @@
-# Markdown Editor
+# Markdown Editor with AI
 
 A simple and lightweight Markdown editor with AI features for Windows, Mac, and Linux
+
+AI features work with local models via Ollama or LMStudio
 
 If you like this project, please consider supporting it 
 

@@ -117,18 +117,24 @@ class AIEditorPlugin {
     }
 
     // Show the inline diff panel immediately
-    const panelPromise = this.api.startInlineDiff('generating', selectedText || '(from prompt)');
+    // Show the prompt if no text was selected, otherwise show the selected text
+    const originalDisplay = selectedText || `Prompt: ${userPrompt}`;
+    const panelPromise = this.api.startInlineDiff('generating', originalDisplay);
 
     try {
       const fullPrompt = selectedText
         ? `${userPrompt}\n\nContext/Selected text:\n${selectedText}`
         : userPrompt;
 
+      const systemPrompt = selectedText
+        ? 'You are a helpful writing assistant. The user will give you an instruction and some text. Apply the instruction to transform or expand the text. IMPORTANT: Output ONLY the resulting text. Do NOT include the instruction itself, do NOT add explanations or meta-commentary, and do NOT wrap the output in quotes.'
+        : 'You are a helpful writing assistant. Generate text based on the user\'s prompt. Be creative and helpful. Output ONLY the generated text, no meta-commentary or explanations.';
+
       const { promise: streamPromise, abort } = this.api.makeAIRequestStream(
         [
           {
             role: 'system',
-            content: 'You are a helpful writing assistant. Generate text based on the user\'s prompt. Be creative and helpful. Only respond with the generated text, no meta-commentary.'
+            content: systemPrompt
           },
           {
             role: 'user',

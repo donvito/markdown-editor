@@ -31,7 +31,6 @@ marked.setOptions({
 let mainWindow;
 let unsavedFiles = new Map(); // Track unsaved files in main process
 let isQuitting = false;
-let pluginContextMenuItems = new Map(); // Store plugin-registered context menu items
 
 function handleClose() {
   if (unsavedFiles.size === 0) {
@@ -205,6 +204,37 @@ ipcMain.handle('open-external', (event, url) => {
   shell.openExternal(url);
 });
 
+ipcMain.handle('show-item-in-folder', (event, filePath) => {
+  shell.showItemInFolder(filePath);
+});
+
+ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
+  try {
+    // Check if destination file already exists
+    // Allow case-only renames on case-insensitive filesystems by checking if paths point to the same file
+    if (fs.existsSync(newPath)) {
+      const oldStats = fs.statSync(oldPath);
+      const newStats = fs.statSync(newPath);
+      const isSameFile = oldStats.ino === newStats.ino && oldStats.dev === newStats.dev;
+      if (!isSameFile) {
+        return { success: false, error: 'A file with that name already exists' };
+      }
+    }
+    fs.renameSync(oldPath, newPath);
+
+    // Update unsaved files tracking if the old path was tracked
+    if (unsavedFiles.has(oldPath)) {
+      const fileName = newPath.split(/[/\\]/).pop();
+      unsavedFiles.delete(oldPath);
+      unsavedFiles.set(newPath, fileName);
+    }
+
+    return { success: true, newPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('parse-markdown', (event, content) => {
   return marked.parse(content);
 });
@@ -311,7 +341,8 @@ ipcMain.handle('plugin:set-setting', (event, pluginId, key, value, isSecure) => 
 });
 
 ipcMain.handle('plugin:register-context-menu', (event, pluginId, items) => {
-  pluginContextMenuItems.set(pluginId, items);
+  // TODO: Plugin context menu items registration - not yet implemented
+  // Items are registered but not currently displayed in context menus
   return { success: true };
 });
 
@@ -375,54 +406,70 @@ ipcMain.handle('plugin:ai-request-abort', (event, streamId) => {
 ipcMain.handle('show-context-menu', (event, selectionData) => {
   const { selectedText, selectionStart, selectionEnd } = selectionData;
 
-  if (!selectedText || selectedText.length === 0) {
-    return;
-  }
-
-  const menuItems = [];
-
-  // Build menu from plugin registrations
-  pluginContextMenuItems.forEach((items, pluginId) => {
-    if (!pluginManager.isEnabled(pluginId)) return;
-
-    items.forEach(item => {
-      // Build label with shortcut if provided
-      let label = item.label;
-      if (item.shortcut) {
-        // Convert Mac shortcut to cross-platform for display
-        const shortcutDisplay = process.platform === 'darwin'
-          ? item.shortcut
-          : item.shortcut.replace('⌘', 'Ctrl+');
-        label = `${item.label}    ${shortcutDisplay}`;
+  const menuItems = [
+    {
+      label: 'Cut',
+      accelerator: 'CmdOrCtrl+X',
+      click: () => {
+        mainWindow.webContents.send('editor:cut', { selectedText, selectionStart, selectionEnd });
       }
-
-      menuItems.push({
-        label,
-        click: () => {
-          mainWindow.webContents.send('plugin:context-menu-action', {
-            pluginId,
-            actionId: item.id,
-            selectedText,
-            selectionStart,
-            selectionEnd
-          });
-        }
-      });
-    });
-
-    // Add separator between plugins
-    if (menuItems.length > 0) {
-      menuItems.push({ type: 'separator' });
+    },
+    {
+      label: 'Copy',
+      accelerator: 'CmdOrCtrl+C',
+      click: () => {
+        mainWindow.webContents.send('editor:copy', { selectedText, selectionStart, selectionEnd });
+      }
+    },
+    {
+      label: 'Paste',
+      accelerator: 'CmdOrCtrl+V',
+      click: () => {
+        mainWindow.webContents.send('editor:paste');
+      }
     }
-  });
+  ];
 
-  // Remove trailing separator
-  if (menuItems.length > 0 && menuItems[menuItems.length - 1].type === 'separator') {
-    menuItems.pop();
-  }
-
-  if (menuItems.length === 0) {
-    return; // No plugin menu items registered
+  // Add AI options only when text is selected
+  if (selectedText && selectedText.length > 0) {
+    menuItems.push({ type: 'separator' });
+    menuItems.push({
+      label: 'Edit with AI...',
+      accelerator: 'CmdOrCtrl+K',
+      click: () => {
+        mainWindow.webContents.send('ai:action', { actionId: 'generate', selectedText, selectionStart, selectionEnd });
+      }
+    });
+    menuItems.push({
+      label: 'Make Shorter',
+      click: () => {
+        mainWindow.webContents.send('ai:action', { actionId: 'shorter', selectedText, selectionStart, selectionEnd });
+      }
+    });
+    menuItems.push({
+      label: 'Make Longer',
+      click: () => {
+        mainWindow.webContents.send('ai:action', { actionId: 'longer', selectedText, selectionStart, selectionEnd });
+      }
+    });
+    menuItems.push({
+      label: 'More Formal',
+      click: () => {
+        mainWindow.webContents.send('ai:action', { actionId: 'formal', selectedText, selectionStart, selectionEnd });
+      }
+    });
+    menuItems.push({
+      label: 'More Casual',
+      click: () => {
+        mainWindow.webContents.send('ai:action', { actionId: 'casual', selectedText, selectionStart, selectionEnd });
+      }
+    });
+    menuItems.push({
+      label: 'Fix Grammar & Spelling',
+      click: () => {
+        mainWindow.webContents.send('ai:action', { actionId: 'fix-grammar', selectedText, selectionStart, selectionEnd });
+      }
+    });
   }
 
   const menu = Menu.buildFromTemplate(menuItems);

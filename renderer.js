@@ -15,12 +15,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggle = document.getElementById('theme-toggle');
   const lineNumbers = document.getElementById('line-numbers');
   const cursorPosition = document.getElementById('cursor-position');
+  const wordCountSpan = document.getElementById('word-count');
+  const charCountSpan = document.getElementById('char-count');
+  const lineCountSpan = document.getElementById('line-count');
   const toggleLineNumbersBtn = document.getElementById('toggle-line-numbers');
   const toggleWordWrapBtn = document.getElementById('toggle-word-wrap');
   const sidebar = document.getElementById('sidebar');
   const toggleSidebarBtn = document.getElementById('toggle-sidebar');
   const fileList = document.getElementById('file-list');
   const tabsBar = document.getElementById('tabs-bar');
+  const rightSidebar = document.getElementById('right-sidebar');
+  const toggleRightSidebarBtn = document.getElementById('toggle-right-sidebar');
+  const outlineToggleBtn = document.getElementById('outline-toggle-btn');
+  const outlineList = document.getElementById('outline-list');
+  const currentFilePathSpan = document.getElementById('current-file-path');
+  const openFilesSection = document.getElementById('open-files-section');
+  const openFilesHeader = document.getElementById('open-files-header');
 
   // Multi-file state management
   let openFiles = new Map(); // Map of filePath -> { content, unsaved, cursorPos, scrollPos }
@@ -30,6 +40,25 @@ document.addEventListener('DOMContentLoaded', () => {
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
   let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
+  let rightSidebarHidden = localStorage.getItem('rightSidebarHidden') === 'true';
+  let openFilesSectionCollapsed = localStorage.getItem('openFilesSectionCollapsed') === 'true';
+  let outlineCollapsedItems = JSON.parse(localStorage.getItem('outlineCollapsedItems') || '{}');
+  let sidebarWidth = parseInt(localStorage.getItem('sidebarWidth') || '200', 10);
+  let rightSidebarWidth = parseInt(localStorage.getItem('rightSidebarWidth') || '220', 10);
+
+  // Shared regex for matching YAML frontmatter
+  const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
+
+  // Utility function to escape HTML special characters
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
   // Initialize theme
   const lightIcon = themeToggle.querySelector('.light-icon');
@@ -60,11 +89,20 @@ document.addEventListener('DOMContentLoaded', () => {
   themeToggle.addEventListener('click', toggleTheme);
 
   // Sidebar functionality
+  const sidebarResizeHandle = document.getElementById('sidebar-resize-handle');
+  const rightSidebarResizeHandle = document.getElementById('right-sidebar-resize-handle');
+
   function initSidebar() {
     if (sidebarCollapsed) {
       sidebar.classList.add('collapsed');
+      sidebar.style.width = '';
+      sidebar.style.minWidth = '';
+      sidebarResizeHandle.style.display = 'none';
     } else {
       sidebar.classList.remove('collapsed');
+      sidebar.style.width = sidebarWidth + 'px';
+      sidebar.style.minWidth = sidebarWidth + 'px';
+      sidebarResizeHandle.style.display = '';
     }
   }
 
@@ -76,6 +114,628 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initSidebar();
   toggleSidebarBtn.addEventListener('click', toggleSidebar);
+
+  // Sidebar resize functionality
+  function initSidebarWidths() {
+    if (!sidebarCollapsed) {
+      sidebar.style.width = sidebarWidth + 'px';
+      sidebar.style.minWidth = sidebarWidth + 'px';
+    }
+    if (!rightSidebarHidden) {
+      rightSidebar.style.width = rightSidebarWidth + 'px';
+      rightSidebar.style.minWidth = rightSidebarWidth + 'px';
+    }
+  }
+
+  function setupResizeHandlers() {
+    let isResizing = false;
+    let currentHandle = null;
+    let startX = 0;
+    let startWidth = 0;
+
+    function onMouseDown(e, handle, target, isLeft) {
+      isResizing = true;
+      currentHandle = handle;
+      startX = e.clientX;
+      startWidth = target.offsetWidth;
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing');
+      e.preventDefault();
+
+      function onMouseMove(e) {
+        if (!isResizing) return;
+
+        const diff = isLeft ? e.clientX - startX : startX - e.clientX;
+        const newWidth = Math.max(150, Math.min(500, startWidth + diff));
+
+        target.style.width = newWidth + 'px';
+        target.style.minWidth = newWidth + 'px';
+
+        // Update line numbers if resizing affects editor
+        if (wordWrap) {
+          updateLineNumbers();
+        }
+      }
+
+      function onMouseUp() {
+        if (!isResizing) return;
+        isResizing = false;
+        currentHandle.classList.remove('resizing');
+        document.body.classList.remove('resizing');
+
+        // Save the new width
+        if (currentHandle === sidebarResizeHandle) {
+          sidebarWidth = sidebar.offsetWidth;
+          localStorage.setItem('sidebarWidth', sidebarWidth);
+        } else {
+          rightSidebarWidth = rightSidebar.offsetWidth;
+          localStorage.setItem('rightSidebarWidth', rightSidebarWidth);
+        }
+
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    sidebarResizeHandle.addEventListener('mousedown', (e) => {
+      if (!sidebarCollapsed) {
+        onMouseDown(e, sidebarResizeHandle, sidebar, true);
+      }
+    });
+
+    rightSidebarResizeHandle.addEventListener('mousedown', (e) => {
+      if (!rightSidebarHidden) {
+        onMouseDown(e, rightSidebarResizeHandle, rightSidebar, false);
+      }
+    });
+  }
+
+  initSidebarWidths();
+  setupResizeHandlers();
+
+  // Open Files section collapse
+  function initOpenFilesSection() {
+    if (openFilesSectionCollapsed) {
+      openFilesSection.classList.add('collapsed');
+    } else {
+      openFilesSection.classList.remove('collapsed');
+    }
+  }
+
+  function toggleOpenFilesSection() {
+    openFilesSectionCollapsed = !openFilesSectionCollapsed;
+    localStorage.setItem('openFilesSectionCollapsed', openFilesSectionCollapsed);
+    initOpenFilesSection();
+  }
+
+  initOpenFilesSection();
+  openFilesHeader.addEventListener('click', toggleOpenFilesSection);
+
+  // Right Sidebar (Outline) functionality
+  function initRightSidebar() {
+    if (rightSidebarHidden) {
+      rightSidebar.classList.add('hidden');
+      outlineToggleBtn.classList.remove('active');
+      rightSidebar.style.width = '';
+      rightSidebar.style.minWidth = '';
+      rightSidebarResizeHandle.style.display = 'none';
+    } else {
+      rightSidebar.classList.remove('hidden');
+      outlineToggleBtn.classList.add('active');
+      rightSidebar.style.width = rightSidebarWidth + 'px';
+      rightSidebar.style.minWidth = rightSidebarWidth + 'px';
+      rightSidebarResizeHandle.style.display = '';
+    }
+  }
+
+  function toggleRightSidebar() {
+    rightSidebarHidden = !rightSidebarHidden;
+    localStorage.setItem('rightSidebarHidden', rightSidebarHidden);
+    initRightSidebar();
+  }
+
+  // Right sidebar tabs
+  const tabOutline = document.getElementById('tab-outline');
+  const tabChat = document.getElementById('tab-chat');
+  const outlinePanel = document.getElementById('outline-panel');
+  const chatPanel = document.getElementById('chat-panel');
+  const chatMessages = document.getElementById('chat-messages');
+  const chatInput = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send');
+  const chatIncludeContext = document.getElementById('chat-include-context');
+  const chatClearBtn = document.getElementById('chat-clear');
+
+  let chatHistory = [];
+  let isChatStreaming = false;
+  let chatAbortFn = null;
+
+  function clearChat() {
+    // Abort any ongoing stream
+    if (chatAbortFn) {
+      chatAbortFn();
+      chatAbortFn = null;
+    }
+
+    // Clear history
+    chatHistory = [];
+    isChatStreaming = false;
+    chatSendBtn.disabled = false;
+
+    // Reset UI
+    chatMessages.innerHTML = `
+      <div class="chat-welcome">
+        <p>Ask AI anything about your document or get writing help.</p>
+      </div>
+    `;
+  }
+
+  chatClearBtn.addEventListener('click', clearChat);
+
+  // Open chat links in external browser
+  chatMessages.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+      e.preventDefault();
+      window.electronAPI.openExternal(link.href);
+    }
+  });
+
+  function switchToTab(tabName) {
+    tabOutline.classList.toggle('active', tabName === 'outline');
+    tabChat.classList.toggle('active', tabName === 'chat');
+    outlinePanel.classList.toggle('active', tabName === 'outline');
+    chatPanel.classList.toggle('active', tabName === 'chat');
+
+    if (tabName === 'chat') {
+      chatInput.focus();
+    }
+  }
+
+  tabOutline.addEventListener('click', () => switchToTab('outline'));
+  tabChat.addEventListener('click', () => switchToTab('chat'));
+
+  // Chat functionality
+  function addChatMessage(role, content, isStreaming = false) {
+    // Remove welcome message if it exists
+    const welcome = chatMessages.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${role}${isStreaming ? ' streaming' : ''}`;
+
+    if (role === 'assistant') {
+      messageDiv.innerHTML = `
+        <div class="chat-message-content"></div>
+        <button class="chat-copy-btn" title="Copy response">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      `;
+      // Store raw content for copying
+      messageDiv.dataset.rawContent = content;
+    } else {
+      messageDiv.innerHTML = `<div class="chat-message-content"></div>`;
+    }
+
+    const contentDiv = messageDiv.querySelector('.chat-message-content');
+
+    if (role === 'assistant') {
+      // Render markdown for assistant messages
+      window.electronAPI.parseMarkdown(content).then(html => {
+        contentDiv.innerHTML = html;
+      });
+
+      // Add copy button handler
+      const copyBtn = messageDiv.querySelector('.chat-copy-btn');
+      copyBtn.addEventListener('click', () => {
+        const rawContent = messageDiv.dataset.rawContent || contentDiv.textContent;
+        navigator.clipboard.writeText(rawContent).then(() => {
+          copyBtn.classList.add('copied');
+          setTimeout(() => copyBtn.classList.remove('copied'), 1500);
+        });
+      });
+    } else {
+      contentDiv.textContent = content;
+    }
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    return messageDiv;
+  }
+
+  function updateChatMessage(messageDiv, content) {
+    const contentDiv = messageDiv.querySelector('.chat-message-content');
+    // Store raw content for copying
+    messageDiv.dataset.rawContent = content;
+    window.electronAPI.parseMarkdown(content).then(html => {
+      contentDiv.innerHTML = html;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  }
+
+  async function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message || isChatStreaming) return;
+
+    // Add user message
+    addChatMessage('user', message);
+    chatHistory.push({ role: 'user', content: message });
+
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    chatSendBtn.disabled = true;
+    isChatStreaming = true;
+
+    // Add assistant message placeholder
+    const assistantDiv = addChatMessage('assistant', '', true);
+
+    try {
+      // Build system message with optional document context
+      let systemContent = 'You are a helpful AI assistant in a markdown editor. Help users with writing, editing, and answering questions. Keep responses concise and helpful. Use markdown formatting when appropriate.';
+
+      if (chatIncludeContext.checked && activeFilePath && openFiles.has(activeFilePath)) {
+        const fileData = openFiles.get(activeFilePath);
+        const fileName = getFileName(activeFilePath);
+        systemContent += `\n\nThe user is currently editing a document named "${fileName}". Here is the document content:\n\n---\n${fileData.content}\n---\n\nYou can reference this document when answering questions.`;
+      }
+
+      // Build messages array for API
+      const apiMessages = [
+        {
+          role: 'system',
+          content: systemContent
+        },
+        ...chatHistory
+      ];
+
+      let fullResponse = '';
+      let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
+
+      const cleanup = () => {
+        if (chunkHandlerRef) window.pluginAPI.removeAIStreamListener('chunk', chunkHandlerRef);
+        if (doneHandlerRef) window.pluginAPI.removeAIStreamListener('done', doneHandlerRef);
+        if (errorHandlerRef) window.pluginAPI.removeAIStreamListener('error', errorHandlerRef);
+        chatAbortFn = null;
+      };
+
+      // Start the stream and get streamId
+      const { streamId } = await window.pluginAPI.makeAIRequestStream('ai-editor', 'chat/completions', {
+        messages: apiMessages
+      });
+
+      // Set up handlers that check for matching streamId
+      const chunkHandler = (data) => {
+        if (data.streamId === streamId) {
+          fullResponse += data.chunk;
+          updateChatMessage(assistantDiv, fullResponse);
+        }
+      };
+
+      const doneHandler = (data) => {
+        if (data.streamId === streamId) {
+          assistantDiv.classList.remove('streaming');
+          chatHistory.push({ role: 'assistant', content: fullResponse });
+          isChatStreaming = false;
+          chatSendBtn.disabled = false;
+          cleanup();
+        }
+      };
+
+      const errorHandler = (data) => {
+        if (data.streamId === streamId) {
+          assistantDiv.classList.remove('streaming');
+          updateChatMessage(assistantDiv, 'Error: ' + (data.error || 'Failed to get response'));
+          isChatStreaming = false;
+          chatSendBtn.disabled = false;
+          cleanup();
+        }
+      };
+
+      chunkHandlerRef = window.pluginAPI.onAIStreamChunk(chunkHandler);
+      doneHandlerRef = window.pluginAPI.onAIStreamDone(doneHandler);
+      errorHandlerRef = window.pluginAPI.onAIStreamError(errorHandler);
+
+      chatAbortFn = () => {
+        cleanup();
+        window.pluginAPI.abortAIRequestStream(streamId);
+      };
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      assistantDiv.classList.remove('streaming');
+      updateChatMessage(assistantDiv, 'Error: ' + error.message);
+      isChatStreaming = false;
+      chatSendBtn.disabled = false;
+    }
+  }
+
+  chatSendBtn.addEventListener('click', sendChatMessage);
+
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+
+  // Auto-resize chat input
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+  });
+
+  // Parse headings from markdown content
+  function parseHeadings(content) {
+    const headings = [];
+    const lines = content.split('\n');
+    let lineIndex = 0;
+    let charIndex = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const nextLine = lines[i + 1];
+
+      // ATX-style headings: # Heading
+      const atxMatch = line.match(/^(#{1,6})\s+(.+)$/);
+      if (atxMatch) {
+        headings.push({
+          level: atxMatch[1].length,
+          text: atxMatch[2].trim(),
+          line: lineIndex,
+          charIndex: charIndex
+        });
+      }
+      // Setext-style headings: Heading followed by === or ---
+      else if (nextLine && line.trim().length > 0) {
+        if (/^=+\s*$/.test(nextLine)) {
+          headings.push({
+            level: 1,
+            text: line.trim(),
+            line: lineIndex,
+            charIndex: charIndex
+          });
+        } else if (/^-+\s*$/.test(nextLine) && line.trim().length > 0) {
+          headings.push({
+            level: 2,
+            text: line.trim(),
+            line: lineIndex,
+            charIndex: charIndex
+          });
+        }
+      }
+
+      charIndex += line.length + 1; // +1 for newline
+      lineIndex++;
+    }
+
+    return headings;
+  }
+
+  // Build hierarchical tree from flat headings
+  function buildHeadingTree(headings) {
+    const root = { children: [], level: 0 };
+    const stack = [root];
+
+    headings.forEach((heading, index) => {
+      const node = { ...heading, index, children: [] };
+
+      // Pop stack until we find a parent with lower level
+      while (stack.length > 1 && stack[stack.length - 1].level >= heading.level) {
+        stack.pop();
+      }
+
+      // Add as child of current stack top
+      stack[stack.length - 1].children.push(node);
+      stack.push(node);
+    });
+
+    return root.children;
+  }
+
+  // Generate unique ID for a heading (for collapse state)
+  function getHeadingId(heading) {
+    return `${heading.level}-${heading.charIndex}`;
+  }
+
+  // Render a single outline item with its children
+  function renderOutlineItem(heading, depth = 0) {
+    const hasChildren = heading.children && heading.children.length > 0;
+    const headingId = getHeadingId(heading);
+    const isCollapsed = outlineCollapsedItems[activeFilePath]?.[headingId] === true;
+
+    const chevronHtml = hasChildren ? `
+      <svg class="outline-chevron ${isCollapsed ? 'collapsed' : ''}" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    ` : '<span class="outline-chevron-placeholder"></span>';
+
+    const childrenHtml = hasChildren ? `
+      <div class="outline-children ${isCollapsed ? 'collapsed' : ''}">
+        ${heading.children.map(child => renderOutlineItem(child, depth + 1)).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <div class="outline-item-container">
+        <div class="outline-item" data-level="${heading.level}" data-index="${heading.index}" data-char="${heading.charIndex}" data-id="${headingId}" title="${escapeHtml(heading.text)}">
+          ${chevronHtml}
+          <span class="outline-text">${escapeHtml(heading.text)}</span>
+        </div>
+        ${childrenHtml}
+      </div>
+    `;
+  }
+
+  // Toggle collapse state for an outline item
+  function toggleOutlineCollapse(headingId) {
+    if (!outlineCollapsedItems[activeFilePath]) {
+      outlineCollapsedItems[activeFilePath] = {};
+    }
+    outlineCollapsedItems[activeFilePath][headingId] = !outlineCollapsedItems[activeFilePath][headingId];
+    localStorage.setItem('outlineCollapsedItems', JSON.stringify(outlineCollapsedItems));
+  }
+
+  // Render the document outline
+  function renderOutline() {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) {
+      outlineList.innerHTML = '<div class="outline-empty">No document open</div>';
+      return;
+    }
+
+    const fileData = openFiles.get(activeFilePath);
+    // Strip frontmatter before parsing headings (same as preview)
+    // But track the frontmatter length to adjust charIndex for editor navigation
+    let content = fileData.content;
+    const frontmatterMatch = content.match(frontmatterRegex);
+    const frontmatterLength = frontmatterMatch ? frontmatterMatch[0].length : 0;
+    content = content.replace(frontmatterRegex, '');
+
+    const headings = parseHeadings(content);
+
+    // Adjust charIndex to account for stripped frontmatter
+    headings.forEach(h => {
+      h.charIndex += frontmatterLength;
+    });
+
+    if (headings.length === 0) {
+      outlineList.innerHTML = '<div class="outline-empty">No headings found</div>';
+      return;
+    }
+
+    // Build hierarchical tree and render
+    const tree = buildHeadingTree(headings);
+    outlineList.innerHTML = tree.map(heading => renderOutlineItem(heading)).join('');
+
+    // Add click handlers for navigation and collapse toggle
+    outlineList.querySelectorAll('.outline-item').forEach((item) => {
+      const chevron = item.querySelector('.outline-chevron');
+
+      // Chevron click - toggle collapse
+      if (chevron) {
+        chevron.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const headingId = item.dataset.id;
+          toggleOutlineCollapse(headingId);
+
+          // Update UI without full re-render
+          chevron.classList.toggle('collapsed');
+          const childrenContainer = item.parentElement.querySelector('.outline-children');
+          if (childrenContainer) {
+            childrenContainer.classList.toggle('collapsed');
+          }
+        });
+      }
+
+      // Item click - navigate to heading
+      item.addEventListener('click', () => {
+        const charIndex = parseInt(item.dataset.char, 10);
+        const headingIndex = parseInt(item.dataset.index, 10);
+
+        // Set cursor at the beginning of the heading line
+        editor.focus();
+        editor.setSelectionRange(charIndex, charIndex);
+
+        // Calculate scroll position accounting for word wrap
+        const scrollPosition = calculateScrollPositionForLine(charIndex);
+        editor.scrollTop = scrollPosition;
+        syncLineNumbersScroll();
+
+        // Scroll preview to the corresponding heading (by index)
+        scrollPreviewToHeading(headingIndex);
+
+        // Update active state
+        outlineList.querySelectorAll('.outline-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+
+        updateCursorPosition();
+      });
+    });
+  }
+
+  // Calculate the scroll position needed to show a given character position at the top
+  function calculateScrollPositionForLine(charIndex) {
+    const lines = editor.value.substring(0, charIndex).split('\n');
+    const targetLineIndex = lines.length - 1;
+    const allLines = editor.value.split('\n');
+    const lineHeight = getLineHeight();
+
+    if (!wordWrap) {
+      // Simple calculation without word wrap
+      return targetLineIndex * lineHeight;
+    }
+
+    // With word wrap, measure actual heights of lines before target
+    const measure = getMeasureElement();
+    const editorWidth = editor.clientWidth - 40; // Subtract padding
+    measure.style.width = editorWidth + 'px';
+
+    let totalHeight = 0;
+    for (let i = 0; i < targetLineIndex; i++) {
+      measure.textContent = allLines[i] || ' ';
+      const height = measure.offsetHeight;
+      const visualLines = Math.max(1, Math.round(height / lineHeight));
+      totalHeight += visualLines * lineHeight;
+    }
+
+    return totalHeight;
+  }
+
+  // Scroll preview pane to show the heading at the top
+  function scrollPreviewToHeading(index) {
+    // Get all headings in the preview in document order
+    const allHeadings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+    if (index >= 0 && index < allHeadings.length) {
+      const targetHeading = allHeadings[index];
+
+      // Get positions using getBoundingClientRect for accuracy
+      const paneRect = previewPane.getBoundingClientRect();
+      const headingRect = targetHeading.getBoundingClientRect();
+
+      // Calculate how far the heading is from the top of the visible pane area
+      const offsetFromPaneTop = headingRect.top - paneRect.top;
+
+      // Add that offset to current scroll position, minus a small margin
+      previewPane.scrollTop = previewPane.scrollTop + offsetFromPaneTop - 16;
+    }
+  }
+
+  // Update active outline item based on cursor position
+  function updateActiveOutlineItem() {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) return;
+
+    const cursorPos = editor.selectionStart;
+    const items = outlineList.querySelectorAll('.outline-item');
+
+    let activeItem = null;
+    items.forEach(item => {
+      item.classList.remove('active');
+      const charIndex = parseInt(item.dataset.char, 10);
+      if (charIndex <= cursorPos) {
+        activeItem = item;
+      }
+    });
+
+    if (activeItem) {
+      activeItem.classList.add('active');
+      // Scroll outline list to show active item
+      const listRect = outlineList.getBoundingClientRect();
+      const itemRect = activeItem.getBoundingClientRect();
+      if (itemRect.top < listRect.top || itemRect.bottom > listRect.bottom) {
+        activeItem.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  initRightSidebar();
+  toggleRightSidebarBtn.addEventListener('click', toggleRightSidebar);
+  outlineToggleBtn.addEventListener('click', toggleRightSidebar);
 
   // Line numbers functionality
   function initLineNumbers() {
@@ -224,6 +884,373 @@ document.addEventListener('DOMContentLoaded', () => {
   // Word wrap toggle button
   toggleWordWrapBtn.addEventListener('click', toggleWordWrap);
 
+  // Inline Formatting Toolbar in Header
+  const formattingToolbarInline = document.getElementById('formatting-toolbar-inline');
+
+  // Check if selected text has specific formatting
+  function checkFormatting(text, before, after) {
+    if (!text || text.length === 0) return false;
+    return text.startsWith(before) && text.endsWith(after) && text.length >= before.length + after.length;
+  }
+
+  // Check if lines have a specific prefix
+  function checkLinePrefix(text, prefix) {
+    if (!text) return false;
+    const lines = text.split('\n');
+    return lines.every(line => line.startsWith(prefix) || line.trim() === '');
+  }
+
+  // Check if text is a numbered list
+  function checkNumberedList(text) {
+    if (!text) return false;
+    const lines = text.split('\n');
+    return lines.every((line, i) => {
+      const match = line.match(/^(\d+)\.\s/);
+      return match || line.trim() === '';
+    });
+  }
+
+  // Update button active states based on selection
+  function updateToolbarState() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    // Get extended selection to check for surrounding markers
+    const extStart = Math.max(0, start - 3);
+    const extEnd = Math.min(value.length, end + 3);
+    const extendedContext = value.substring(extStart, extEnd);
+
+    // Check inline formatting by looking at what surrounds the selection
+    const beforeSel = value.substring(Math.max(0, start - 2), start);
+    const afterSel = value.substring(end, Math.min(value.length, end + 2));
+
+    // Bold: check for ** around selection
+    const isBold = (beforeSel.endsWith('**') && afterSel.startsWith('**')) ||
+                   checkFormatting(selectedText, '**', '**');
+    document.getElementById('fmt-bold').classList.toggle('active', isBold);
+
+    // Italic: check for * around selection (but not **)
+    const isItalic = (beforeSel.endsWith('*') && !beforeSel.endsWith('**') &&
+                      afterSel.startsWith('*') && !afterSel.startsWith('**')) ||
+                     (checkFormatting(selectedText, '*', '*') && !checkFormatting(selectedText, '**', '**'));
+    document.getElementById('fmt-italic').classList.toggle('active', isItalic);
+
+    // Strikethrough
+    const isStrike = (beforeSel.endsWith('~~') && afterSel.startsWith('~~')) ||
+                     checkFormatting(selectedText, '~~', '~~');
+    document.getElementById('fmt-strikethrough').classList.toggle('active', isStrike);
+
+    // Inline code
+    const isCode = (beforeSel.endsWith('`') && !beforeSel.endsWith('``') &&
+                    afterSel.startsWith('`') && !afterSel.startsWith('``')) ||
+                   (checkFormatting(selectedText, '`', '`') && !checkFormatting(selectedText, '```', '```'));
+    document.getElementById('fmt-code').classList.toggle('active', isCode);
+
+    // Get full lines for line-based formatting
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+    const fullLines = value.substring(lineStart, lineEnd);
+
+    // Heading - check specific levels
+    const headingMatch = fullLines.match(/^(#{1,6})\s/);
+    const headingLevel = headingMatch ? headingMatch[1].length : 0;
+    document.getElementById('fmt-h1').classList.toggle('active', headingLevel === 1);
+    document.getElementById('fmt-h2').classList.toggle('active', headingLevel === 2);
+    document.getElementById('fmt-h3').classList.toggle('active', headingLevel === 3);
+    document.getElementById('fmt-h4').classList.toggle('active', headingLevel === 4);
+    document.getElementById('fmt-h5').classList.toggle('active', headingLevel === 5);
+    document.getElementById('fmt-h6').classList.toggle('active', headingLevel === 6);
+
+    // Bullet list
+    const isBullet = checkLinePrefix(fullLines, '- ') || checkLinePrefix(fullLines, '* ');
+    document.getElementById('fmt-ul').classList.toggle('active', isBullet);
+
+    // Numbered list
+    const isNumbered = checkNumberedList(fullLines);
+    document.getElementById('fmt-ol').classList.toggle('active', isNumbered);
+
+    // Quote
+    const isQuote = checkLinePrefix(fullLines, '> ');
+    document.getElementById('fmt-quote').classList.toggle('active', isQuote);
+
+    // Link - check if selection or surrounding is a link
+    const linkRegex = /\[([^\]]*)\]\([^)]*\)/;
+    const isLink = linkRegex.test(selectedText) || linkRegex.test(extendedContext);
+    document.getElementById('fmt-link').classList.toggle('active', isLink);
+
+    // Code block
+    const isCodeBlock = selectedText.startsWith('```') && selectedText.endsWith('```');
+    document.getElementById('fmt-codeblock').classList.toggle('active', isCodeBlock);
+  }
+
+
+  // Toggle formatting (add or remove)
+  function toggleWrapFormatting(before, after) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    // Check if formatting already exists around selection
+    const beforeSel = value.substring(Math.max(0, start - before.length), start);
+    const afterSel = value.substring(end, Math.min(value.length, end + after.length));
+
+    editor.focus();
+
+    if (beforeSel === before && afterSel === after) {
+      // Remove formatting from around selection
+      editor.selectionStart = start - before.length;
+      editor.selectionEnd = end + after.length;
+      document.execCommand('insertText', false, selectedText);
+      editor.selectionStart = start - before.length;
+      editor.selectionEnd = end - before.length;
+    } else if (checkFormatting(selectedText, before, after)) {
+      // Remove formatting from within selection
+      const inner = selectedText.substring(before.length, selectedText.length - after.length);
+      document.execCommand('insertText', false, inner);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + inner.length;
+    } else {
+      // Add formatting
+      const replacement = before + selectedText + after;
+      document.execCommand('insertText', false, replacement);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + replacement.length;
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleLinePrefix(prefix) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+
+    // Find line boundaries
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const selectedLines = value.substring(lineStart, lineEnd);
+    const lines = selectedLines.split('\n');
+
+    // Check if all lines have the prefix
+    const allHavePrefix = lines.every(line => line.startsWith(prefix) || line.trim() === '');
+
+    let newLines;
+    if (allHavePrefix) {
+      // Remove prefix
+      newLines = lines.map(line => {
+        if (line.startsWith(prefix)) {
+          return line.substring(prefix.length);
+        }
+        return line;
+      }).join('\n');
+    } else {
+      // Add prefix
+      newLines = lines.map(line => prefix + line).join('\n');
+    }
+
+    editor.focus();
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    document.execCommand('insertText', false, newLines);
+
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + newLines.length;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleNumberedList() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const selectedLines = value.substring(lineStart, lineEnd);
+    const lines = selectedLines.split('\n');
+
+    const isNumbered = checkNumberedList(selectedLines);
+
+    let newLines;
+    if (isNumbered) {
+      // Remove numbering
+      newLines = lines.map(line => {
+        return line.replace(/^\d+\.\s/, '');
+      }).join('\n');
+    } else {
+      // Add numbering
+      newLines = lines.map((line, i) => `${i + 1}. ${line}`).join('\n');
+    }
+
+    editor.focus();
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    document.execCommand('insertText', false, newLines);
+
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + newLines.length;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleHeading(targetLevel) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const line = value.substring(lineStart, lineEnd);
+
+    // Check current heading level
+    const headingMatch = line.match(/^(#{1,6})\s/);
+    const currentLevel = headingMatch ? headingMatch[1].length : 0;
+
+    let newLine;
+    if (currentLevel === targetLevel) {
+      // Same level - remove heading
+      newLine = line.replace(/^#{1,6}\s/, '');
+    } else if (currentLevel > 0) {
+      // Different level - replace with target level
+      const hashes = '#'.repeat(targetLevel);
+      newLine = line.replace(/^#{1,6}\s/, hashes + ' ');
+    } else {
+      // No heading - add target level
+      const hashes = '#'.repeat(targetLevel);
+      newLine = hashes + ' ' + line;
+    }
+
+    editor.focus();
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    document.execCommand('insertText', false, newLine);
+
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + newLine.length;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+  function toggleLink() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    // Check if it's already a link
+    const linkMatch = selectedText.match(/^\[([^\]]*)\]\(([^)]*)\)$/);
+
+    editor.focus();
+
+    if (linkMatch) {
+      // Remove link formatting, keep just the text
+      document.execCommand('insertText', false, linkMatch[1]);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + linkMatch[1].length;
+    } else {
+      // Add link formatting
+      const replacement = `[${selectedText}](url)`;
+      document.execCommand('insertText', false, replacement);
+      // Select 'url' for easy replacement
+      const urlStart = start + selectedText.length + 3;
+      editor.selectionStart = urlStart;
+      editor.selectionEnd = urlStart + 3;
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleCodeBlock() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    editor.focus();
+
+    // Check if already a code block
+    if (selectedText.startsWith('```') && selectedText.endsWith('```')) {
+      // Remove code block
+      let inner = selectedText.substring(3, selectedText.length - 3);
+      // Remove first line if it's the language specifier
+      if (inner.startsWith('\n')) {
+        inner = inner.substring(1);
+      } else {
+        const firstNewline = inner.indexOf('\n');
+        if (firstNewline !== -1) {
+          inner = inner.substring(firstNewline + 1);
+        }
+      }
+      if (inner.endsWith('\n')) {
+        inner = inner.substring(0, inner.length - 1);
+      }
+      document.execCommand('insertText', false, inner);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + inner.length;
+    } else {
+      // Add code block
+      const replacement = '```\n' + selectedText + '\n```';
+      document.execCommand('insertText', false, replacement);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + replacement.length;
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  // Formatting toolbar button event listeners
+  document.getElementById('fmt-bold').addEventListener('click', () => toggleWrapFormatting('**', '**'));
+  document.getElementById('fmt-italic').addEventListener('click', () => toggleWrapFormatting('*', '*'));
+  document.getElementById('fmt-strikethrough').addEventListener('click', () => toggleWrapFormatting('~~', '~~'));
+  document.getElementById('fmt-code').addEventListener('click', () => toggleWrapFormatting('`', '`'));
+  document.getElementById('fmt-h1').addEventListener('click', () => toggleHeading(1));
+  document.getElementById('fmt-h2').addEventListener('click', () => toggleHeading(2));
+  document.getElementById('fmt-h3').addEventListener('click', () => toggleHeading(3));
+  document.getElementById('fmt-h4').addEventListener('click', () => toggleHeading(4));
+  document.getElementById('fmt-h5').addEventListener('click', () => toggleHeading(5));
+  document.getElementById('fmt-h6').addEventListener('click', () => toggleHeading(6));
+  document.getElementById('fmt-link').addEventListener('click', toggleLink);
+  document.getElementById('fmt-ul').addEventListener('click', () => toggleLinePrefix('- '));
+  document.getElementById('fmt-ol').addEventListener('click', toggleNumberedList);
+  document.getElementById('fmt-quote').addEventListener('click', () => toggleLinePrefix('> '));
+  document.getElementById('fmt-codeblock').addEventListener('click', toggleCodeBlock);
+
+  // Update toolbar button active states on selection change
+  editor.addEventListener('select', updateToolbarState);
+  editor.addEventListener('click', updateToolbarState);
+  editor.addEventListener('keyup', updateToolbarState);
+
+  // Keyboard shortcuts for formatting
+  editor.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          toggleWrapFormatting('**', '**');
+          break;
+        case 'i':
+          e.preventDefault();
+          toggleWrapFormatting('*', '*');
+          break;
+      }
+    }
+  });
+
   // Update line numbers when editor is resized (affects word wrap)
   let resizeTimer;
   const resizeObserver = new ResizeObserver(() => {
@@ -253,9 +1280,27 @@ document.addEventListener('DOMContentLoaded', () => {
     cursorPosition.textContent = `Ln ${line}, Col ${col}`;
   }
 
+  // Word, character, and line count tracking
+  function updateWordCount() {
+    const text = editor.value;
+    const trimmedText = text.trim();
+    const words = trimmedText ? trimmedText.split(/\s+/).length : 0;
+    const chars = text.length;
+    const lines = text ? text.split('\n').length : 0;
+    wordCountSpan.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    charCountSpan.textContent = `${chars} char${chars !== 1 ? 's' : ''}`;
+    lineCountSpan.textContent = `${lines} line${lines !== 1 ? 's' : ''}`;
+  }
+
   // Update cursor position on various events
-  editor.addEventListener('keyup', updateCursorPosition);
-  editor.addEventListener('click', updateCursorPosition);
+  editor.addEventListener('keyup', () => {
+    updateCursorPosition();
+    updateActiveOutlineItem();
+  });
+  editor.addEventListener('click', () => {
+    updateCursorPosition();
+    updateActiveOutlineItem();
+  });
   editor.addEventListener('focus', updateCursorPosition);
 
   function setViewMode(mode) {
@@ -289,7 +1334,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function updatePreview() {
     const fileData = openFiles.get(activeFilePath);
     if (fileData) {
-      window.electronAPI.parseMarkdown(fileData.content).then((html) => {
+      // Strip frontmatter (YAML between --- markers at the start)
+      let content = fileData.content;
+      content = content.replace(frontmatterRegex, '');
+
+      window.electronAPI.parseMarkdown(content).then((html) => {
         contentDiv.innerHTML = html;
       });
     }
@@ -303,6 +1352,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return filePath.split(/[/\\]/).pop();
   }
 
+  function getParentFolder(filePath) {
+    if (filePath.startsWith('untitled:')) {
+      return '';
+    }
+    const parts = filePath.split(/[/\\]/);
+    if (parts.length >= 2) {
+      // Return parent folder name
+      return parts[parts.length - 2];
+    }
+    return '';
+  }
+
+  function updateCurrentFilePath() {
+    if (!activeFilePath || activeFilePath.startsWith('untitled:')) {
+      currentFilePathSpan.textContent = '';
+      currentFilePathSpan.title = '';
+      return;
+    }
+    currentFilePathSpan.textContent = activeFilePath;
+    currentFilePathSpan.title = activeFilePath;
+  }
+
   // Render the file list in sidebar
   function renderFileList() {
     fileList.innerHTML = '';
@@ -310,9 +1381,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const li = document.createElement('li');
       li.className = filePath === activeFilePath ? 'active' : '';
       li.title = filePath;
+      const parentFolder = getParentFolder(filePath);
       li.innerHTML = `
         <span class="file-icon">📄</span>
-        <span class="file-name">${getFileName(filePath)}</span>
+        <div class="file-info">
+          <span class="file-name">${escapeHtml(getFileName(filePath))}</span>
+          ${parentFolder ? `<span class="file-path">${escapeHtml(parentFolder)}</span>` : ''}
+        </div>
         ${fileData.unsaved ? '<span class="unsaved-dot"></span>' : ''}
         <button class="close-file" title="Close file">×</button>
       `;
@@ -321,11 +1396,147 @@ document.addEventListener('DOMContentLoaded', () => {
           switchToFile(filePath);
         }
       });
+      li.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showFileContextMenu(filePath, e.clientX, e.clientY);
+      });
       li.querySelector('.close-file').addEventListener('click', (e) => {
         e.stopPropagation();
         closeFile(filePath);
       });
       fileList.appendChild(li);
+    });
+  }
+
+  // File context menu
+  function showFileContextMenu(filePath, x, y) {
+    // Remove existing context menu if any
+    const existingMenu = document.querySelector('.file-context-menu');
+    if (existingMenu) existingMenu.remove();
+
+    // Don't show for untitled files
+    if (filePath.startsWith('untitled:')) return;
+
+    const menu = document.createElement('div');
+    menu.className = 'file-context-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const showInLabel = isMac ? 'Show in Finder' : 'Show in Explorer';
+
+    menu.innerHTML = `
+      <div class="file-context-menu-item" data-action="rename">Rename</div>
+      <div class="file-context-menu-separator"></div>
+      <div class="file-context-menu-item" data-action="show-in-folder">${showInLabel}</div>
+      <div class="file-context-menu-item" data-action="copy-path">Copy Path</div>
+    `;
+
+    document.body.appendChild(menu);
+
+    // Handle menu item clicks
+    menu.addEventListener('click', async (e) => {
+      const action = e.target.dataset.action;
+      if (action === 'show-in-folder') {
+        window.electronAPI.showItemInFolder(filePath);
+      } else if (action === 'copy-path') {
+        navigator.clipboard.writeText(filePath);
+      } else if (action === 'rename') {
+        menu.remove();
+        showRenameDialog(filePath);
+        return;
+      }
+      menu.remove();
+    });
+
+    // Close menu when clicking outside
+    const closeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+  }
+
+  // Rename dialog
+  function showRenameDialog(filePath) {
+    const fileName = getFileName(filePath);
+    const dirPath = filePath.substring(0, filePath.length - fileName.length);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'rename-dialog';
+    dialog.innerHTML = `
+      <div class="rename-dialog-overlay"></div>
+      <div class="rename-dialog-content">
+        <h3>Rename File</h3>
+        <input type="text" class="rename-input" value="${escapeHtml(fileName)}" />
+        <div class="rename-dialog-buttons">
+          <button class="rename-btn cancel">Cancel</button>
+          <button class="rename-btn ok">Rename</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    const input = dialog.querySelector('.rename-input');
+    const cancelBtn = dialog.querySelector('.rename-btn.cancel');
+    const okBtn = dialog.querySelector('.rename-btn.ok');
+
+    // Select filename without extension
+    const dotIndex = fileName.lastIndexOf('.');
+    input.focus();
+    input.setSelectionRange(0, dotIndex > 0 ? dotIndex : fileName.length);
+
+    const closeDialog = () => dialog.remove();
+
+    const doRename = async () => {
+      const newName = input.value.trim();
+      if (!newName || newName === fileName) {
+        closeDialog();
+        return;
+      }
+
+      const newPath = dirPath + newName;
+      const result = await window.electronAPI.renameFile(filePath, newPath);
+
+      if (result.success) {
+        // Update the open file entry
+        const fileData = openFiles.get(filePath);
+        if (fileData) {
+          // Notify main process about the path change
+          window.electronAPI.notifyFileClosed(filePath);
+          if (fileData.unsaved) {
+            window.electronAPI.notifyFileUnsaved(newPath, newName);
+          }
+
+          openFiles.delete(filePath);
+          openFiles.set(newPath, fileData);
+
+          if (activeFilePath === filePath) {
+            activeFilePath = newPath;
+          }
+
+          renderFileList();
+          renderTabs();
+          updateCurrentFilePath();
+          document.title = `${newName} - Markdown Editor`;
+          fileNameSpan.textContent = fileData.unsaved ? `${newName} (unsaved)` : newName;
+        }
+      } else {
+        alert('Failed to rename: ' + result.error);
+      }
+
+      closeDialog();
+    };
+
+    cancelBtn.addEventListener('click', closeDialog);
+    okBtn.addEventListener('click', doRename);
+    dialog.querySelector('.rename-dialog-overlay').addEventListener('click', closeDialog);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doRename();
+      if (e.key === 'Escape') closeDialog();
     });
   }
 
@@ -336,8 +1547,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const tab = document.createElement('div');
       tab.className = `tab ${filePath === activeFilePath ? 'active' : ''}`;
       tab.title = filePath;
+      const parentFolder = getParentFolder(filePath);
       tab.innerHTML = `
-        <span class="tab-name">${getFileName(filePath)}</span>
+        <div class="tab-info">
+          <span class="tab-name">${escapeHtml(getFileName(filePath))}</span>
+          ${parentFolder ? `<span class="tab-path">${escapeHtml(parentFolder)}</span>` : ''}
+        </div>
         ${fileData.unsaved ? '<span class="unsaved-indicator"></span>' : ''}
         <button class="close-tab" title="Close">×</button>
       `;
@@ -385,16 +1600,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fileName = getFileName(filePath);
     fileNameSpan.textContent = fileData.unsaved ? `${fileName} (unsaved)` : fileName;
-    document.title = `${fileName} - Markdown Viewer`;
+    document.title = `${fileName} - Markdown Editor`;
 
     saveBtn.disabled = !fileData.unsaved;
 
     updatePreview();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
     syncLineNumbersScroll();
     renderFileList();
     renderTabs();
+    renderOutline();
+    updateCurrentFilePath();
   }
 
   // Close a file
@@ -427,10 +1645,13 @@ document.addEventListener('DOMContentLoaded', () => {
       welcomeDiv.style.display = 'flex';
       editorContainer.style.display = 'none';
       toggleGroup.style.display = 'none';
+      formattingToolbarInline.style.display = 'none';
       fileNameSpan.textContent = '';
       document.title = 'Markdown Editor';
       editor.value = '';
       contentDiv.innerHTML = '';
+      renderOutline();
+      updateCurrentFilePath();
     } else if (filePath === activeFilePath) {
       // Switch to another file
       const nextFile = openFiles.keys().next().value;
@@ -498,6 +1719,7 @@ document.addEventListener('DOMContentLoaded', () => {
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
+    formattingToolbarInline.style.display = 'flex';
     setViewMode('split');
 
     editor.value = content;
@@ -508,8 +1730,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
     renderFileList();
     renderTabs();
+    renderOutline();
+    updateCurrentFilePath();
   }
 
   function newFile() {
@@ -543,6 +1768,7 @@ document.addEventListener('DOMContentLoaded', () => {
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
+    formattingToolbarInline.style.display = 'flex';
     setViewMode('split');
 
     editor.value = '';
@@ -556,8 +1782,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
     renderFileList();
     renderTabs();
+    renderOutline();
+    updateCurrentFilePath();
 
     editor.focus();
   }
@@ -568,6 +1797,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Editor input handler with debounced preview update
   let debounceTimer;
+  let outlineDebounceTimer;
   let isStreaming = false;
   let lastStreamUpdate = 0;
   const STREAM_THROTTLE = 50; // Update preview every 50ms during streaming
@@ -579,6 +1809,7 @@ document.addEventListener('DOMContentLoaded', () => {
     markUnsaved();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
 
     if (isStreaming) {
       // Throttle updates during streaming for smoother preview
@@ -592,6 +1823,10 @@ document.addEventListener('DOMContentLoaded', () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(updatePreview, 150);
     }
+
+    // Debounced outline update (longer delay since structure changes less frequently)
+    clearTimeout(outlineDebounceTimer);
+    outlineDebounceTimer = setTimeout(renderOutline, 300);
   });
 
   // Listen for streaming state changes from plugins
@@ -623,6 +1858,15 @@ document.addEventListener('DOMContentLoaded', () => {
   donateLink.addEventListener('click', (e) => {
     e.preventDefault();
     window.electronAPI.openExternal('https://buymeacoffee.com/donvitocodes');
+  });
+
+  // Open links in preview pane in external browser
+  contentDiv.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+      e.preventDefault();
+      window.electronAPI.openExternal(link.href);
+    }
   });
 
   // Open button
@@ -732,17 +1976,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle right-click context menu for AI actions
+  // Handle right-click context menu
   editor.addEventListener('contextmenu', (e) => {
-    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+    e.preventDefault();
+    window.electronAPI.showContextMenu({
+      selectedText: editor.value.substring(editor.selectionStart, editor.selectionEnd),
+      selectionStart: editor.selectionStart,
+      selectionEnd: editor.selectionEnd
+    });
+  });
 
-    if (selectedText.length > 0) {
-      e.preventDefault();
-      window.electronAPI.showContextMenu({
-        selectedText,
-        selectionStart: editor.selectionStart,
-        selectionEnd: editor.selectionEnd
-      });
+  // Handle cut, copy, paste from context menu
+  window.electronAPI.onEditorCut((data) => {
+    const { selectedText, selectionStart, selectionEnd } = data || {};
+    if (selectedText) {
+      navigator.clipboard.writeText(selectedText);
+      editor.focus();
+      // Restore selection before cutting
+      editor.setSelectionRange(selectionStart, selectionEnd);
+      document.execCommand('insertText', false, '');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+
+  window.electronAPI.onEditorCopy((data) => {
+    const { selectedText } = data || {};
+    if (selectedText) {
+      navigator.clipboard.writeText(selectedText);
+    }
+  });
+
+  window.electronAPI.onEditorPaste(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        editor.focus();
+        document.execCommand('insertText', false, text);
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    } catch (err) {
+      console.error('Failed to paste:', err);
     }
   });
 
@@ -750,6 +2023,24 @@ document.addEventListener('DOMContentLoaded', () => {
   window.pluginAPI.onContextMenuAction((data) => {
     // Dispatch event for plugin host to handle
     document.dispatchEvent(new CustomEvent('plugin:context-menu-action', { detail: data }));
+  });
+
+  // Handle AI actions from context menu
+  window.electronAPI.onAIAction((data) => {
+    const { actionId, selectedText, selectionStart, selectionEnd } = data;
+    // Restore selection in editor
+    editor.focus();
+    editor.setSelectionRange(selectionStart, selectionEnd);
+    // Dispatch to plugin
+    document.dispatchEvent(new CustomEvent('plugin:context-menu-action', {
+      detail: {
+        pluginId: 'ai-editor',
+        actionId,
+        selectedText,
+        selectionStart,
+        selectionEnd
+      }
+    }));
   });
 
   // Cmd/Ctrl+K shortcut for AI Generate with prompt
