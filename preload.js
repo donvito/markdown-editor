@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notifyFileSaved: (filePath) => ipcRenderer.send('file-saved-state', filePath),
   notifyFileClosed: (filePath) => ipcRenderer.send('file-closed', filePath),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
+  renameFile: (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   showContextMenu: (data) => ipcRenderer.invoke('show-context-menu', data),
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
   onEditorCut: (callback) => ipcRenderer.on('editor:cut', () => callback()),

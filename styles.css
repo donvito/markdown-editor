@@ -533,6 +533,49 @@ main {
   overflow-y: auto;
 }
 
+/* Sidebar Sections */
+.sidebar-section {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  gap: 6px;
+}
+
+.sidebar-section-header:hover {
+  background-color: #e0e0e0;
+}
+
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+}
+
+.section-chevron {
+  transition: transform 0.2s;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.sidebar-section.collapsed .section-chevron {
+  transform: rotate(-90deg);
+}
+
+.sidebar-section-content {
+  overflow: hidden;
+}
+
+.sidebar-section.collapsed .sidebar-section-content {
+  display: none;
+}
+
 .file-list {
   list-style: none;
   padding: 0;
@@ -674,57 +717,306 @@ main {
 
 /* Document Outline */
 .outline-list {
-  list-style: none;
   padding: 0;
   margin: 0;
   overflow-y: auto;
 }
 
-.outline-list li {
+.outline-empty {
+  color: #999;
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.outline-item {
   display: flex;
-  align-items: flex-start;
-  padding: 6px 12px;
+  align-items: center;
+  padding: 5px 8px;
   cursor: pointer;
   font-size: 12px;
   color: #444;
   line-height: 1.4;
   border-left: 2px solid transparent;
   transition: background-color 0.1s, border-left-color 0.1s;
+  gap: 4px;
 }
 
-.outline-list li:hover {
+.outline-item:hover {
   background-color: #e0e0e0;
 }
 
-.outline-list li.active {
+.outline-item.active {
   background-color: #ddd;
   border-left-color: #0066cc;
 }
 
-.outline-list li.outline-empty {
-  color: #999;
-  font-style: italic;
-  cursor: default;
-  padding: 12px;
-  text-align: center;
+.outline-chevron {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #888;
+  transition: transform 0.15s;
+  cursor: pointer;
+  border-radius: 3px;
 }
 
-.outline-list li.outline-empty:hover {
-  background-color: transparent;
+.outline-chevron:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
-/* Heading level indentation */
-.outline-list li[data-level="1"] { padding-left: 12px; font-weight: 600; }
-.outline-list li[data-level="2"] { padding-left: 20px; }
-.outline-list li[data-level="3"] { padding-left: 28px; }
-.outline-list li[data-level="4"] { padding-left: 36px; font-size: 11px; }
-.outline-list li[data-level="5"] { padding-left: 44px; font-size: 11px; }
-.outline-list li[data-level="6"] { padding-left: 52px; font-size: 11px; }
+.outline-chevron svg {
+  width: 10px;
+  height: 10px;
+}
+
+.outline-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.outline-chevron-placeholder {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.outline-item-container {
+  display: flex;
+  flex-direction: column;
+}
 
 .outline-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+}
+
+.outline-children {
+  overflow: hidden;
+}
+
+.outline-children.collapsed {
+  display: none;
+}
+
+/* Heading level indentation */
+.outline-item[data-level="1"] { padding-left: 8px; font-weight: 600; }
+.outline-item[data-level="2"] { padding-left: 16px; }
+.outline-item[data-level="3"] { padding-left: 24px; }
+.outline-item[data-level="4"] { padding-left: 32px; font-size: 11px; }
+.outline-item[data-level="5"] { padding-left: 40px; font-size: 11px; }
+.outline-item[data-level="6"] { padding-left: 48px; font-size: 11px; }
+
+/* File Context Menu */
+.file-context-menu {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 10000;
+}
+
+.file-context-menu-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.file-context-menu-item:hover {
+  background-color: #f0f0f0;
+}
+
+.file-context-menu-separator {
+  height: 1px;
+  background-color: #e0e0e0;
+  margin: 4px 0;
+}
+
+/* Rename Dialog */
+.rename-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rename-dialog-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.rename-dialog-content {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.rename-dialog-content h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.rename-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.rename-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.rename-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.rename-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+
+.rename-btn.cancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.rename-btn.cancel:hover {
+  background: #d0d0d0;
+}
+
+.rename-btn.ok {
+  background: #0066cc;
+  color: #fff;
+}
+
+.rename-btn.ok:hover {
+  background: #0055aa;
+}
+
+body.dark .file-context-menu {
+  background: #2d2d2d;
+  border-color: #404040;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+body.dark .file-context-menu-item {
+  color: #ccc;
+}
+
+body.dark .file-context-menu-item:hover {
+  background-color: #3d3d3d;
+}
+
+body.dark .file-context-menu-separator {
+  background-color: #404040;
+}
+
+/* Dark mode rename dialog */
+body.dark .rename-dialog-content {
+  background: #1e1e1e;
+}
+
+body.dark .rename-dialog-content h3 {
+  color: #e0e0e0;
+}
+
+body.dark .rename-input {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+body.dark .rename-input:focus {
+  border-color: #4da6ff;
+  box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.1);
+}
+
+body.dark .rename-btn.cancel {
+  background: #444;
+  color: #e0e0e0;
+}
+
+body.dark .rename-btn.cancel:hover {
+  background: #555;
+}
+
+/* Resize Handles */
+.resize-handle {
+  width: 4px;
+  background-color: transparent;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 10;
+  transition: background-color 0.15s;
+}
+
+.resize-handle:hover,
+.resize-handle.resizing {
+  background-color: #0066cc;
+}
+
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  left: -2px;
+}
+
+.resize-handle-left {
+  margin-left: -4px;
+}
+
+.resize-handle-right {
+  margin-right: -4px;
+}
+
+/* Resize handles are hidden/shown via JavaScript when sidebars collapse/hide */
+
+/* Prevent text selection during resize */
+body.resizing {
+  user-select: none;
+  cursor: col-resize !important;
+}
+
+body.resizing * {
+  cursor: col-resize !important;
 }
 
 /* Main Content Area */
@@ -1431,6 +1723,12 @@ body.dark .status-btn.active {
   color: white;
 }
 
+/* Dark mode resize handles */
+body.dark .resize-handle:hover,
+body.dark .resize-handle.resizing {
+  background-color: #4da6ff;
+}
+
 /* Dark mode sidebar */
 body.dark .sidebar {
   background-color: #1e1e1e;
@@ -1504,22 +1802,47 @@ body.dark .right-sidebar-toggle:hover {
   color: #fff;
 }
 
-/* Dark mode outline */
-body.dark .outline-list li {
-  color: #ccc;
+/* Dark mode sidebar sections */
+body.dark .sidebar-section {
+  border-bottom-color: #333;
 }
 
-body.dark .outline-list li:hover {
+body.dark .sidebar-section-header:hover {
   background-color: #2a2a2a;
 }
 
-body.dark .outline-list li.active {
+body.dark .sidebar-section-title {
+  color: #aaa;
+}
+
+body.dark .section-chevron {
+  color: #888;
+}
+
+/* Dark mode outline */
+body.dark .outline-item {
+  color: #ccc;
+}
+
+body.dark .outline-item:hover {
+  background-color: #2a2a2a;
+}
+
+body.dark .outline-item.active {
   background-color: #333;
   border-left-color: #0077dd;
 }
 
-body.dark .outline-list li.outline-empty {
+body.dark .outline-empty {
   color: #666;
+}
+
+body.dark .outline-chevron {
+  color: #666;
+}
+
+body.dark .outline-chevron:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Dark mode tabs */

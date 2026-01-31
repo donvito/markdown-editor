@@ -205,6 +205,19 @@ ipcMain.handle('open-external', (event, url) => {
   shell.openExternal(url);
 });
 
+ipcMain.handle('show-item-in-folder', (event, filePath) => {
+  shell.showItemInFolder(filePath);
+});
+
+ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
+  try {
+    fs.renameSync(oldPath, newPath);
+    return { success: true, newPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('parse-markdown', (event, content) => {
   return marked.parse(content);
 });

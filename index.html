@@ -106,13 +106,24 @@
     <main>
       <aside id="sidebar" class="sidebar">
         <div class="sidebar-header">
-          <span class="sidebar-title">Open Files</span>
+          <span class="sidebar-title">Explorer</span>
           <button id="toggle-sidebar" class="sidebar-toggle" title="Collapse sidebar">◀</button>
         </div>
         <div class="sidebar-content">
-          <ul id="file-list" class="file-list"></ul>
+          <div class="sidebar-section" id="open-files-section">
+            <div class="sidebar-section-header" id="open-files-header">
+              <svg class="section-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+              <span class="sidebar-section-title">Open Files</span>
+            </div>
+            <div class="sidebar-section-content">
+              <ul id="file-list" class="file-list"></ul>
+            </div>
+          </div>
         </div>
       </aside>
+      <div id="sidebar-resize-handle" class="resize-handle resize-handle-left"></div>
       <div class="main-content">
         <div id="welcome" class="welcome">
           <p>Welcome to Markdown Editor</p>
@@ -145,15 +156,16 @@
           </div>
         </div>
       </div>
+      <div id="right-sidebar-resize-handle" class="resize-handle resize-handle-right"></div>
       <aside id="right-sidebar" class="right-sidebar">
         <div class="right-sidebar-header">
           <span class="right-sidebar-title">Outline</span>
           <button id="toggle-right-sidebar" class="right-sidebar-toggle" title="Close outline">×</button>
         </div>
         <div class="right-sidebar-content">
-          <ul id="outline-list" class="outline-list">
-            <li class="outline-empty">No headings found</li>
-          </ul>
+          <div id="outline-list" class="outline-list">
+            <div class="outline-empty">No headings found</div>
+          </div>
         </div>
       </aside>
     </main>

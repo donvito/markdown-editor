@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const outlineToggleBtn = document.getElementById('outline-toggle-btn');
   const outlineList = document.getElementById('outline-list');
   const currentFilePathSpan = document.getElementById('current-file-path');
+  const openFilesSection = document.getElementById('open-files-section');
+  const openFilesHeader = document.getElementById('open-files-header');
 
   // Multi-file state management
   let openFiles = new Map(); // Map of filePath -> { content, unsaved, cursorPos, scrollPos }
@@ -39,6 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
   let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
   let rightSidebarHidden = localStorage.getItem('rightSidebarHidden') === 'true';
+  let openFilesSectionCollapsed = localStorage.getItem('openFilesSectionCollapsed') === 'true';
+  let outlineCollapsedItems = JSON.parse(localStorage.getItem('outlineCollapsedItems') || '{}');
+  let sidebarWidth = parseInt(localStorage.getItem('sidebarWidth') || '200', 10);
+  let rightSidebarWidth = parseInt(localStorage.getItem('rightSidebarWidth') || '220', 10);
 
   // Initialize theme
   const lightIcon = themeToggle.querySelector('.light-icon');
@@ -69,11 +75,20 @@ document.addEventListener('DOMContentLoaded', () => {
   themeToggle.addEventListener('click', toggleTheme);
 
   // Sidebar functionality
+  const sidebarResizeHandle = document.getElementById('sidebar-resize-handle');
+  const rightSidebarResizeHandle = document.getElementById('right-sidebar-resize-handle');
+
   function initSidebar() {
     if (sidebarCollapsed) {
       sidebar.classList.add('collapsed');
+      sidebar.style.width = '';
+      sidebar.style.minWidth = '';
+      sidebarResizeHandle.style.display = 'none';
     } else {
       sidebar.classList.remove('collapsed');
+      sidebar.style.width = sidebarWidth + 'px';
+      sidebar.style.minWidth = sidebarWidth + 'px';
+      sidebarResizeHandle.style.display = '';
     }
   }
 
@@ -86,14 +101,119 @@ document.addEventListener('DOMContentLoaded', () => {
   initSidebar();
   toggleSidebarBtn.addEventListener('click', toggleSidebar);
 
+  // Sidebar resize functionality
+  function initSidebarWidths() {
+    if (!sidebarCollapsed) {
+      sidebar.style.width = sidebarWidth + 'px';
+      sidebar.style.minWidth = sidebarWidth + 'px';
+    }
+    if (!rightSidebarHidden) {
+      rightSidebar.style.width = rightSidebarWidth + 'px';
+      rightSidebar.style.minWidth = rightSidebarWidth + 'px';
+    }
+  }
+
+  function setupResizeHandlers() {
+    let isResizing = false;
+    let currentHandle = null;
+    let startX = 0;
+    let startWidth = 0;
+
+    function onMouseDown(e, handle, target, isLeft) {
+      isResizing = true;
+      currentHandle = handle;
+      startX = e.clientX;
+      startWidth = target.offsetWidth;
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing');
+      e.preventDefault();
+
+      function onMouseMove(e) {
+        if (!isResizing) return;
+
+        const diff = isLeft ? e.clientX - startX : startX - e.clientX;
+        const newWidth = Math.max(150, Math.min(500, startWidth + diff));
+
+        target.style.width = newWidth + 'px';
+        target.style.minWidth = newWidth + 'px';
+
+        // Update line numbers if resizing affects editor
+        if (wordWrap) {
+          updateLineNumbers();
+        }
+      }
+
+      function onMouseUp() {
+        if (!isResizing) return;
+        isResizing = false;
+        currentHandle.classList.remove('resizing');
+        document.body.classList.remove('resizing');
+
+        // Save the new width
+        if (currentHandle === sidebarResizeHandle) {
+          sidebarWidth = sidebar.offsetWidth;
+          localStorage.setItem('sidebarWidth', sidebarWidth);
+        } else {
+          rightSidebarWidth = rightSidebar.offsetWidth;
+          localStorage.setItem('rightSidebarWidth', rightSidebarWidth);
+        }
+
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    sidebarResizeHandle.addEventListener('mousedown', (e) => {
+      if (!sidebarCollapsed) {
+        onMouseDown(e, sidebarResizeHandle, sidebar, true);
+      }
+    });
+
+    rightSidebarResizeHandle.addEventListener('mousedown', (e) => {
+      if (!rightSidebarHidden) {
+        onMouseDown(e, rightSidebarResizeHandle, rightSidebar, false);
+      }
+    });
+  }
+
+  initSidebarWidths();
+  setupResizeHandlers();
+
+  // Open Files section collapse
+  function initOpenFilesSection() {
+    if (openFilesSectionCollapsed) {
+      openFilesSection.classList.add('collapsed');
+    } else {
+      openFilesSection.classList.remove('collapsed');
+    }
+  }
+
+  function toggleOpenFilesSection() {
+    openFilesSectionCollapsed = !openFilesSectionCollapsed;
+    localStorage.setItem('openFilesSectionCollapsed', openFilesSectionCollapsed);
+    initOpenFilesSection();
+  }
+
+  initOpenFilesSection();
+  openFilesHeader.addEventListener('click', toggleOpenFilesSection);
+
   // Right Sidebar (Outline) functionality
   function initRightSidebar() {
     if (rightSidebarHidden) {
       rightSidebar.classList.add('hidden');
       outlineToggleBtn.classList.remove('active');
+      rightSidebar.style.width = '';
+      rightSidebar.style.minWidth = '';
+      rightSidebarResizeHandle.style.display = 'none';
     } else {
       rightSidebar.classList.remove('hidden');
       outlineToggleBtn.classList.add('active');
+      rightSidebar.style.width = rightSidebarWidth + 'px';
+      rightSidebar.style.minWidth = rightSidebarWidth + 'px';
+      rightSidebarResizeHandle.style.display = '';
     }
   }
 
@@ -127,10 +247,74 @@ document.addEventListener('DOMContentLoaded', () => {
     return headings;
   }
 
+  // Build hierarchical tree from flat headings
+  function buildHeadingTree(headings) {
+    const root = { children: [], level: 0 };
+    const stack = [root];
+
+    headings.forEach((heading, index) => {
+      const node = { ...heading, index, children: [] };
+
+      // Pop stack until we find a parent with lower level
+      while (stack.length > 1 && stack[stack.length - 1].level >= heading.level) {
+        stack.pop();
+      }
+
+      // Add as child of current stack top
+      stack[stack.length - 1].children.push(node);
+      stack.push(node);
+    });
+
+    return root.children;
+  }
+
+  // Generate unique ID for a heading (for collapse state)
+  function getHeadingId(heading) {
+    return `${heading.level}-${heading.charIndex}`;
+  }
+
+  // Render a single outline item with its children
+  function renderOutlineItem(heading, depth = 0) {
+    const hasChildren = heading.children && heading.children.length > 0;
+    const headingId = getHeadingId(heading);
+    const isCollapsed = outlineCollapsedItems[activeFilePath]?.[headingId] === true;
+
+    const chevronHtml = hasChildren ? `
+      <svg class="outline-chevron ${isCollapsed ? 'collapsed' : ''}" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    ` : '<span class="outline-chevron-placeholder"></span>';
+
+    const childrenHtml = hasChildren ? `
+      <div class="outline-children ${isCollapsed ? 'collapsed' : ''}">
+        ${heading.children.map(child => renderOutlineItem(child, depth + 1)).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <div class="outline-item-container">
+        <div class="outline-item" data-level="${heading.level}" data-index="${heading.index}" data-char="${heading.charIndex}" data-id="${headingId}" title="${heading.text}">
+          ${chevronHtml}
+          <span class="outline-text">${heading.text}</span>
+        </div>
+        ${childrenHtml}
+      </div>
+    `;
+  }
+
+  // Toggle collapse state for an outline item
+  function toggleOutlineCollapse(headingId) {
+    if (!outlineCollapsedItems[activeFilePath]) {
+      outlineCollapsedItems[activeFilePath] = {};
+    }
+    outlineCollapsedItems[activeFilePath][headingId] = !outlineCollapsedItems[activeFilePath][headingId];
+    localStorage.setItem('outlineCollapsedItems', JSON.stringify(outlineCollapsedItems));
+  }
+
   // Render the document outline
   function renderOutline() {
     if (!activeFilePath || !openFiles.has(activeFilePath)) {
-      outlineList.innerHTML = '<li class="outline-empty">No document open</li>';
+      outlineList.innerHTML = '<div class="outline-empty">No document open</div>';
       return;
     }
 
@@ -138,21 +322,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const headings = parseHeadings(fileData.content);
 
     if (headings.length === 0) {
-      outlineList.innerHTML = '<li class="outline-empty">No headings found</li>';
+      outlineList.innerHTML = '<div class="outline-empty">No headings found</div>';
       return;
     }
 
-    outlineList.innerHTML = headings.map((heading, index) => `
-      <li data-level="${heading.level}" data-index="${index}" data-char="${heading.charIndex}" title="${heading.text}">
-        <span class="outline-text">${heading.text}</span>
-      </li>
-    `).join('');
+    // Build hierarchical tree and render
+    const tree = buildHeadingTree(headings);
+    outlineList.innerHTML = tree.map(heading => renderOutlineItem(heading)).join('');
 
-    // Add click handlers for navigation
-    outlineList.querySelectorAll('li[data-char]').forEach((li) => {
-      li.addEventListener('click', () => {
-        const charIndex = parseInt(li.dataset.char, 10);
-        const headingIndex = parseInt(li.dataset.index, 10);
+    // Add click handlers for navigation and collapse toggle
+    outlineList.querySelectorAll('.outline-item').forEach((item) => {
+      const chevron = item.querySelector('.outline-chevron');
+
+      // Chevron click - toggle collapse
+      if (chevron) {
+        chevron.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const headingId = item.dataset.id;
+          toggleOutlineCollapse(headingId);
+
+          // Update UI without full re-render
+          chevron.classList.toggle('collapsed');
+          const childrenContainer = item.parentElement.querySelector('.outline-children');
+          if (childrenContainer) {
+            childrenContainer.classList.toggle('collapsed');
+          }
+        });
+      }
+
+      // Item click - navigate to heading
+      item.addEventListener('click', () => {
+        const charIndex = parseInt(item.dataset.char, 10);
+        const headingIndex = parseInt(item.dataset.index, 10);
 
         // Set cursor at the beginning of the heading line
         editor.focus();
@@ -167,8 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollPreviewToHeading(headingIndex);
 
         // Update active state
-        outlineList.querySelectorAll('li').forEach(item => item.classList.remove('active'));
-        li.classList.add('active');
+        outlineList.querySelectorAll('.outline-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
 
         updateCursorPosition();
       });
@@ -228,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!activeFilePath || !openFiles.has(activeFilePath)) return;
 
     const cursorPos = editor.selectionStart;
-    const items = outlineList.querySelectorAll('li[data-char]');
+    const items = outlineList.querySelectorAll('.outline-item');
 
     let activeItem = null;
     items.forEach(item => {
@@ -917,11 +1118,141 @@ document.addEventListener('DOMContentLoaded', () => {
           switchToFile(filePath);
         }
       });
+      li.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showFileContextMenu(filePath, e.clientX, e.clientY);
+      });
       li.querySelector('.close-file').addEventListener('click', (e) => {
         e.stopPropagation();
         closeFile(filePath);
       });
       fileList.appendChild(li);
+    });
+  }
+
+  // File context menu
+  function showFileContextMenu(filePath, x, y) {
+    // Remove existing context menu if any
+    const existingMenu = document.querySelector('.file-context-menu');
+    if (existingMenu) existingMenu.remove();
+
+    // Don't show for untitled files
+    if (filePath.startsWith('untitled:')) return;
+
+    const menu = document.createElement('div');
+    menu.className = 'file-context-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const showInLabel = isMac ? 'Show in Finder' : 'Show in Explorer';
+
+    menu.innerHTML = `
+      <div class="file-context-menu-item" data-action="rename">Rename</div>
+      <div class="file-context-menu-separator"></div>
+      <div class="file-context-menu-item" data-action="show-in-folder">${showInLabel}</div>
+      <div class="file-context-menu-item" data-action="copy-path">Copy Path</div>
+    `;
+
+    document.body.appendChild(menu);
+
+    // Handle menu item clicks
+    menu.addEventListener('click', async (e) => {
+      const action = e.target.dataset.action;
+      if (action === 'show-in-folder') {
+        window.electronAPI.showItemInFolder(filePath);
+      } else if (action === 'copy-path') {
+        navigator.clipboard.writeText(filePath);
+      } else if (action === 'rename') {
+        menu.remove();
+        showRenameDialog(filePath);
+        return;
+      }
+      menu.remove();
+    });
+
+    // Close menu when clicking outside
+    const closeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+  }
+
+  // Rename dialog
+  function showRenameDialog(filePath) {
+    const fileName = getFileName(filePath);
+    const dirPath = filePath.substring(0, filePath.length - fileName.length);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'rename-dialog';
+    dialog.innerHTML = `
+      <div class="rename-dialog-overlay"></div>
+      <div class="rename-dialog-content">
+        <h3>Rename File</h3>
+        <input type="text" class="rename-input" value="${fileName}" />
+        <div class="rename-dialog-buttons">
+          <button class="rename-btn cancel">Cancel</button>
+          <button class="rename-btn ok">Rename</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    const input = dialog.querySelector('.rename-input');
+    const cancelBtn = dialog.querySelector('.rename-btn.cancel');
+    const okBtn = dialog.querySelector('.rename-btn.ok');
+
+    // Select filename without extension
+    const dotIndex = fileName.lastIndexOf('.');
+    input.focus();
+    input.setSelectionRange(0, dotIndex > 0 ? dotIndex : fileName.length);
+
+    const closeDialog = () => dialog.remove();
+
+    const doRename = async () => {
+      const newName = input.value.trim();
+      if (!newName || newName === fileName) {
+        closeDialog();
+        return;
+      }
+
+      const newPath = dirPath + newName;
+      const result = await window.electronAPI.renameFile(filePath, newPath);
+
+      if (result.success) {
+        // Update the open file entry
+        const fileData = openFiles.get(filePath);
+        if (fileData) {
+          openFiles.delete(filePath);
+          openFiles.set(newPath, fileData);
+
+          if (activeFilePath === filePath) {
+            activeFilePath = newPath;
+          }
+
+          renderFileList();
+          renderTabs();
+          updateCurrentFilePath();
+          document.title = `${newName} - Markdown Editor`;
+          fileNameSpan.textContent = fileData.unsaved ? `${newName} (unsaved)` : newName;
+        }
+      } else {
+        alert('Failed to rename: ' + result.error);
+      }
+
+      closeDialog();
+    };
+
+    cancelBtn.addEventListener('click', closeDialog);
+    okBtn.addEventListener('click', doRename);
+    dialog.querySelector('.rename-dialog-overlay').addEventListener('click', closeDialog);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doRename();
+      if (e.key === 'Escape') closeDialog();
     });
   }
 
