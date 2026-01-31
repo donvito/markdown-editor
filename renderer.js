@@ -477,16 +477,39 @@ document.addEventListener('DOMContentLoaded', () => {
     let lineIndex = 0;
     let charIndex = 0;
 
-    for (const line of lines) {
-      const match = line.match(/^(#{1,6})\s+(.+)$/);
-      if (match) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const nextLine = lines[i + 1];
+
+      // ATX-style headings: # Heading
+      const atxMatch = line.match(/^(#{1,6})\s+(.+)$/);
+      if (atxMatch) {
         headings.push({
-          level: match[1].length,
-          text: match[2].trim(),
+          level: atxMatch[1].length,
+          text: atxMatch[2].trim(),
           line: lineIndex,
           charIndex: charIndex
         });
       }
+      // Setext-style headings: Heading followed by === or ---
+      else if (nextLine && line.trim().length > 0) {
+        if (/^=+\s*$/.test(nextLine)) {
+          headings.push({
+            level: 1,
+            text: line.trim(),
+            line: lineIndex,
+            charIndex: charIndex
+          });
+        } else if (/^-+\s*$/.test(nextLine) && line.trim().length > 0) {
+          headings.push({
+            level: 2,
+            text: line.trim(),
+            line: lineIndex,
+            charIndex: charIndex
+          });
+        }
+      }
+
       charIndex += line.length + 1; // +1 for newline
       lineIndex++;
     }

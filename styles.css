@@ -173,44 +173,6 @@ header h1 {
   margin: 0 4px;
 }
 
-.fmt-dropdown-inline {
-  position: relative;
-}
-
-.fmt-dropdown-inline .fmt-btn-inline {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding-right: 6px;
-}
-
-.fmt-dropdown-inline .fmt-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 4px;
-  min-width: 140px;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-4px);
-  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
-  z-index: 1000;
-}
-
-.fmt-dropdown-inline.open .fmt-dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.fmt-dropdown-inline.open .fmt-dropdown-arrow {
-  transform: rotate(180deg);
-}
-
 .toggle-group {
   display: flex;
   border: 1px solid #ddd;
@@ -1677,12 +1639,6 @@ body.dark .fmt-btn-inline.active {
 
 body.dark .fmt-separator-inline {
   background-color: #404040;
-}
-
-body.dark .fmt-dropdown-inline .fmt-dropdown-menu {
-  background-color: #2d2d2d;
-  border-color: #404040;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 body.dark .heading-desc {
