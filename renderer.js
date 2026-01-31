@@ -1118,10 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     editor.dispatchEvent(new Event('input', { bubbles: true }));
     updateToolbarState();
-    closeHeadingDropdown();
   }
-
-  // Heading dropdown handling
   function toggleLink() {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;

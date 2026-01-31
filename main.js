@@ -31,7 +31,6 @@ marked.setOptions({
 let mainWindow;
 let unsavedFiles = new Map(); // Track unsaved files in main process
 let isQuitting = false;
-let pluginContextMenuItems = new Map(); // Store plugin-registered context menu items
 
 function handleClose() {
   if (unsavedFiles.size === 0) {
@@ -336,7 +335,8 @@ ipcMain.handle('plugin:set-setting', (event, pluginId, key, value, isSecure) => 
 });
 
 ipcMain.handle('plugin:register-context-menu', (event, pluginId, items) => {
-  pluginContextMenuItems.set(pluginId, items);
+  // TODO: Plugin context menu items registration - not yet implemented
+  // Items are registered but not currently displayed in context menus
   return { success: true };
 });
 
