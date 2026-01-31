@@ -117,7 +117,9 @@ class AIEditorPlugin {
     }
 
     // Show the inline diff panel immediately
-    const panelPromise = this.api.startInlineDiff('generating', selectedText || '(from prompt)');
+    // Show the prompt if no text was selected, otherwise show the selected text
+    const originalDisplay = selectedText || `Prompt: ${userPrompt}`;
+    const panelPromise = this.api.startInlineDiff('generating', originalDisplay);
 
     try {
       const fullPrompt = selectedText
