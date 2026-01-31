@@ -25,11 +25,33 @@ body {
 header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   padding: 10px 16px;
   background-color: #fff;
   border-bottom: 1px solid #e0e0e0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.header-center {
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0 24px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 header h1 {
@@ -177,7 +199,6 @@ header h1 {
 
 .toggle-group {
   display: flex;
-  margin-left: 16px;
   border: 1px solid #ddd;
   border-radius: 4px;
   overflow: hidden;
@@ -757,6 +778,13 @@ main {
   color: #666;
 }
 
+.status-left,
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .status-btn {
   padding: 2px 8px;
   background-color: #ddd;
@@ -772,10 +800,11 @@ main {
 }
 
 .status-btn.active {
-  background-color: #0066cc;
-  border-color: #0066cc;
+  background-color: #555;
+  border-color: #555;
   color: white;
 }
+
 
 .editor-pane textarea {
   flex: 1;
@@ -941,13 +970,6 @@ main {
 .markdown-body img {
   max-width: 100%;
   height: auto;
-}
-
-/* Header Right Section */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
 /* Donate Link */

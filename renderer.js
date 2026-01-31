@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggle = document.getElementById('theme-toggle');
   const lineNumbers = document.getElementById('line-numbers');
   const cursorPosition = document.getElementById('cursor-position');
+  const wordCountSpan = document.getElementById('word-count');
+  const charCountSpan = document.getElementById('char-count');
+  const lineCountSpan = document.getElementById('line-count');
   const toggleLineNumbersBtn = document.getElementById('toggle-line-numbers');
   const toggleWordWrapBtn = document.getElementById('toggle-word-wrap');
   const sidebar = document.getElementById('sidebar');
@@ -623,6 +626,18 @@ document.addEventListener('DOMContentLoaded', () => {
     cursorPosition.textContent = `Ln ${line}, Col ${col}`;
   }
 
+  // Word, character, and line count tracking
+  function updateWordCount() {
+    const text = editor.value;
+    const trimmedText = text.trim();
+    const words = trimmedText ? trimmedText.split(/\s+/).length : 0;
+    const chars = text.length;
+    const lines = text ? text.split('\n').length : 0;
+    wordCountSpan.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    charCountSpan.textContent = `${chars} char${chars !== 1 ? 's' : ''}`;
+    lineCountSpan.textContent = `${lines} line${lines !== 1 ? 's' : ''}`;
+  }
+
   // Update cursor position on various events
   editor.addEventListener('keyup', updateCursorPosition);
   editor.addEventListener('click', updateCursorPosition);
@@ -762,6 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
     syncLineNumbersScroll();
     renderFileList();
     renderTabs();
@@ -880,6 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
     renderFileList();
     renderTabs();
   }
@@ -929,6 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
     renderFileList();
     renderTabs();
 
@@ -952,6 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
     markUnsaved();
     updateLineNumbers();
     updateCursorPosition();
+    updateWordCount();
 
     if (isStreaming) {
       // Throttle updates during streaming for smoother preview

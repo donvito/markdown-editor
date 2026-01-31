@@ -11,74 +11,78 @@
 <body>
   <div class="container">
     <header>
-      <div class="toolbar">
-        <button id="new-btn" class="toolbar-icon-btn" title="New File (Ctrl+N)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="12" y1="18" x2="12" y2="12"/>
-            <line x1="9" y1="15" x2="15" y2="15"/>
-          </svg>
-        </button>
-        <button id="open-btn" class="toolbar-icon-btn" title="Open File (Ctrl+O)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
-        </button>
-        <button id="save-btn" class="toolbar-icon-btn" title="Save (Ctrl+S)" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-            <polyline points="17 21 17 13 7 13 7 21"/>
-            <polyline points="7 3 7 8 15 8"/>
-          </svg>
-        </button>
-        <div class="toolbar-separator"></div>
-        <div class="formatting-toolbar-inline" id="formatting-toolbar-inline" style="display: none;">
-          <button id="fmt-bold" class="fmt-btn-inline" title="Bold (Ctrl+B)"><strong>B</strong></button>
-          <button id="fmt-italic" class="fmt-btn-inline" title="Italic (Ctrl+I)"><em>I</em></button>
-          <button id="fmt-strikethrough" class="fmt-btn-inline" title="Strikethrough"><s>S</s></button>
-          <button id="fmt-code" class="fmt-btn-inline" title="Inline Code">&lt;/&gt;</button>
-          <div class="fmt-separator-inline"></div>
-          <button id="fmt-h1" class="fmt-btn-inline fmt-heading-btn" title="Heading 1">H1</button>
-          <button id="fmt-h2" class="fmt-btn-inline fmt-heading-btn" title="Heading 2">H2</button>
-          <button id="fmt-h3" class="fmt-btn-inline fmt-heading-btn" title="Heading 3">H3</button>
-          <button id="fmt-h4" class="fmt-btn-inline fmt-heading-btn" title="Heading 4">H4</button>
-          <button id="fmt-h5" class="fmt-btn-inline fmt-heading-btn" title="Heading 5">H5</button>
-          <button id="fmt-h6" class="fmt-btn-inline fmt-heading-btn" title="Heading 6">H6</button>
-          <button id="fmt-link" class="fmt-btn-inline" title="Link">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      <div class="header-left">
+        <div class="toolbar">
+          <button id="new-btn" class="toolbar-icon-btn" title="New File (Ctrl+N)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9" y1="15" x2="15" y2="15"/>
             </svg>
           </button>
-          <button id="fmt-ul" class="fmt-btn-inline" title="Bullet List">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="4" cy="6" r="2"/><circle cx="4" cy="12" r="2"/><circle cx="4" cy="18" r="2"/>
-              <rect x="9" y="5" width="12" height="2"/><rect x="9" y="11" width="12" height="2"/><rect x="9" y="17" width="12" height="2"/>
+          <button id="open-btn" class="toolbar-icon-btn" title="Open File (Ctrl+O)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
           </button>
-          <button id="fmt-ol" class="fmt-btn-inline" title="Numbered List">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <text x="1" y="7" font-size="6" font-weight="bold">1</text>
-              <text x="1" y="13" font-size="6" font-weight="bold">2</text>
-              <text x="1" y="19" font-size="6" font-weight="bold">3</text>
-              <rect x="9" y="5" width="12" height="2"/><rect x="9" y="11" width="12" height="2"/><rect x="9" y="17" width="12" height="2"/>
+          <button id="save-btn" class="toolbar-icon-btn" title="Save (Ctrl+S)" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
             </svg>
           </button>
-          <button id="fmt-quote" class="fmt-btn-inline" title="Quote">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
-            </svg>
-          </button>
-          <button id="fmt-codeblock" class="fmt-btn-inline" title="Code Block">{}</button>
+          <div class="toolbar-separator"></div>
+          <div class="formatting-toolbar-inline" id="formatting-toolbar-inline" style="display: none;">
+            <button id="fmt-bold" class="fmt-btn-inline" title="Bold (Ctrl+B)"><strong>B</strong></button>
+            <button id="fmt-italic" class="fmt-btn-inline" title="Italic (Ctrl+I)"><em>I</em></button>
+            <button id="fmt-strikethrough" class="fmt-btn-inline" title="Strikethrough"><s>S</s></button>
+            <button id="fmt-code" class="fmt-btn-inline" title="Inline Code">&lt;/&gt;</button>
+            <div class="fmt-separator-inline"></div>
+            <button id="fmt-h1" class="fmt-btn-inline fmt-heading-btn" title="Heading 1">H1</button>
+            <button id="fmt-h2" class="fmt-btn-inline fmt-heading-btn" title="Heading 2">H2</button>
+            <button id="fmt-h3" class="fmt-btn-inline fmt-heading-btn" title="Heading 3">H3</button>
+            <button id="fmt-h4" class="fmt-btn-inline fmt-heading-btn" title="Heading 4">H4</button>
+            <button id="fmt-h5" class="fmt-btn-inline fmt-heading-btn" title="Heading 5">H5</button>
+            <button id="fmt-h6" class="fmt-btn-inline fmt-heading-btn" title="Heading 6">H6</button>
+            <button id="fmt-link" class="fmt-btn-inline" title="Link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+            </button>
+            <button id="fmt-ul" class="fmt-btn-inline" title="Bullet List">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="4" cy="6" r="2"/><circle cx="4" cy="12" r="2"/><circle cx="4" cy="18" r="2"/>
+                <rect x="9" y="5" width="12" height="2"/><rect x="9" y="11" width="12" height="2"/><rect x="9" y="17" width="12" height="2"/>
+              </svg>
+            </button>
+            <button id="fmt-ol" class="fmt-btn-inline" title="Numbered List">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <text x="1" y="7" font-size="6" font-weight="bold">1</text>
+                <text x="1" y="13" font-size="6" font-weight="bold">2</text>
+                <text x="1" y="19" font-size="6" font-weight="bold">3</text>
+                <rect x="9" y="5" width="12" height="2"/><rect x="9" y="11" width="12" height="2"/><rect x="9" y="17" width="12" height="2"/>
+              </svg>
+            </button>
+            <button id="fmt-quote" class="fmt-btn-inline" title="Quote">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+              </svg>
+            </button>
+            <button id="fmt-codeblock" class="fmt-btn-inline" title="Code Block">{}</button>
+          </div>
         </div>
+        <span id="file-name" style="display: none;"></span>
+      </div>
+      <div class="header-center">
         <div class="toggle-group" id="toggle-group" style="display: none;">
           <button id="edit-btn" class="toggle-btn">Edit</button>
           <button id="preview-btn" class="toggle-btn">Preview</button>
           <button id="split-btn" class="toggle-btn active">Split</button>
         </div>
       </div>
-      <span id="file-name"></span>
       <div class="header-right">
         <div id="theme-toggle" class="theme-toggle" title="Toggle theme">
           <span class="theme-icon light-icon">
@@ -115,9 +119,16 @@
                 <textarea id="editor" spellcheck="false"></textarea>
               </div>
               <div class="status-bar">
-                <button id="toggle-line-numbers" class="status-btn" title="Toggle line numbers">Ln#</button>
-                <button id="toggle-word-wrap" class="status-btn active" title="Toggle word wrap">Wrap</button>
-                <span id="cursor-position">Ln 1, Col 1</span>
+                <div class="status-left">
+                  <button id="toggle-line-numbers" class="status-btn" title="Toggle line numbers">Ln#</button>
+                  <button id="toggle-word-wrap" class="status-btn active" title="Toggle word wrap">Wrap</button>
+                </div>
+                <div class="status-right">
+                  <span id="line-count">0 lines</span>
+                  <span id="word-count">0 words</span>
+                  <span id="char-count">0 chars</span>
+                  <span id="cursor-position">Ln 1, Col 1</span>
+                </div>
               </div>
             </div>
             <div id="preview-pane" class="pane preview-pane">
