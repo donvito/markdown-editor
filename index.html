@@ -84,6 +84,14 @@
         </div>
       </div>
       <div class="header-right">
+        <span id="current-file-path" class="current-file-path"></span>
+        <button id="outline-toggle-btn" class="toolbar-icon-btn" title="Toggle Outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="15" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="18" y2="18"></line>
+          </svg>
+        </button>
         <div id="theme-toggle" class="theme-toggle" title="Toggle theme">
           <span class="theme-icon light-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><g clip-path="url(#a)" fill="currentColor"><path d="M12 0a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V1a1 1 0 0 1 1-1ZM4.929 3.515a1 1 0 0 0-1.414 1.414l2.828 2.828a1 1 0 0 0 1.414-1.414L4.93 3.515ZM1 11a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2H1ZM18 12a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2h-4a1 1 0 0 1-1-1ZM17.657 16.243a1 1 0 0 0-1.414 1.414l2.828 2.828a1 1 0 1 0 1.414-1.414l-2.828-2.828ZM7.757 17.657a1 1 0 1 0-1.414-1.414L3.515 19.07a1 1 0 1 0 1.414 1.414l2.828-2.828ZM20.485 4.929a1 1 0 0 0-1.414-1.414l-2.828 2.828a1 1 0 1 0 1.414 1.414l2.828-2.828ZM13 19a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0v-4ZM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"></path></g><defs><clipPath id="a"><path fill="#ffffff" d="M0 0h24v24H0z"></path></clipPath></defs></svg>
@@ -137,6 +145,17 @@
           </div>
         </div>
       </div>
+      <aside id="right-sidebar" class="right-sidebar">
+        <div class="right-sidebar-header">
+          <span class="right-sidebar-title">Outline</span>
+          <button id="toggle-right-sidebar" class="right-sidebar-toggle" title="Close outline">×</button>
+        </div>
+        <div class="right-sidebar-content">
+          <ul id="outline-list" class="outline-list">
+            <li class="outline-empty">No headings found</li>
+          </ul>
+        </div>
+      </aside>
     </main>
   </div>
 

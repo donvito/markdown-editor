@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleSidebarBtn = document.getElementById('toggle-sidebar');
   const fileList = document.getElementById('file-list');
   const tabsBar = document.getElementById('tabs-bar');
+  const rightSidebar = document.getElementById('right-sidebar');
+  const toggleRightSidebarBtn = document.getElementById('toggle-right-sidebar');
+  const outlineToggleBtn = document.getElementById('outline-toggle-btn');
+  const outlineList = document.getElementById('outline-list');
+  const currentFilePathSpan = document.getElementById('current-file-path');
 
   // Multi-file state management
   let openFiles = new Map(); // Map of filePath -> { content, unsaved, cursorPos, scrollPos }
@@ -33,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
   let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
+  let rightSidebarHidden = localStorage.getItem('rightSidebarHidden') === 'true';
 
   // Initialize theme
   const lightIcon = themeToggle.querySelector('.light-icon');
@@ -79,6 +85,174 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initSidebar();
   toggleSidebarBtn.addEventListener('click', toggleSidebar);
+
+  // Right Sidebar (Outline) functionality
+  function initRightSidebar() {
+    if (rightSidebarHidden) {
+      rightSidebar.classList.add('hidden');
+      outlineToggleBtn.classList.remove('active');
+    } else {
+      rightSidebar.classList.remove('hidden');
+      outlineToggleBtn.classList.add('active');
+    }
+  }
+
+  function toggleRightSidebar() {
+    rightSidebarHidden = !rightSidebarHidden;
+    localStorage.setItem('rightSidebarHidden', rightSidebarHidden);
+    initRightSidebar();
+  }
+
+  // Parse headings from markdown content
+  function parseHeadings(content) {
+    const headings = [];
+    const lines = content.split('\n');
+    let lineIndex = 0;
+    let charIndex = 0;
+
+    for (const line of lines) {
+      const match = line.match(/^(#{1,6})\s+(.+)$/);
+      if (match) {
+        headings.push({
+          level: match[1].length,
+          text: match[2].trim(),
+          line: lineIndex,
+          charIndex: charIndex
+        });
+      }
+      charIndex += line.length + 1; // +1 for newline
+      lineIndex++;
+    }
+
+    return headings;
+  }
+
+  // Render the document outline
+  function renderOutline() {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) {
+      outlineList.innerHTML = '<li class="outline-empty">No document open</li>';
+      return;
+    }
+
+    const fileData = openFiles.get(activeFilePath);
+    const headings = parseHeadings(fileData.content);
+
+    if (headings.length === 0) {
+      outlineList.innerHTML = '<li class="outline-empty">No headings found</li>';
+      return;
+    }
+
+    outlineList.innerHTML = headings.map((heading, index) => `
+      <li data-level="${heading.level}" data-index="${index}" data-char="${heading.charIndex}" title="${heading.text}">
+        <span class="outline-text">${heading.text}</span>
+      </li>
+    `).join('');
+
+    // Add click handlers for navigation
+    outlineList.querySelectorAll('li[data-char]').forEach((li) => {
+      li.addEventListener('click', () => {
+        const charIndex = parseInt(li.dataset.char, 10);
+        const headingIndex = parseInt(li.dataset.index, 10);
+
+        // Set cursor at the beginning of the heading line
+        editor.focus();
+        editor.setSelectionRange(charIndex, charIndex);
+
+        // Calculate scroll position accounting for word wrap
+        const scrollPosition = calculateScrollPositionForLine(charIndex);
+        editor.scrollTop = scrollPosition;
+        syncLineNumbersScroll();
+
+        // Scroll preview to the corresponding heading (by index)
+        scrollPreviewToHeading(headingIndex);
+
+        // Update active state
+        outlineList.querySelectorAll('li').forEach(item => item.classList.remove('active'));
+        li.classList.add('active');
+
+        updateCursorPosition();
+      });
+    });
+  }
+
+  // Calculate the scroll position needed to show a given character position at the top
+  function calculateScrollPositionForLine(charIndex) {
+    const lines = editor.value.substring(0, charIndex).split('\n');
+    const targetLineIndex = lines.length - 1;
+    const allLines = editor.value.split('\n');
+    const lineHeight = getLineHeight();
+
+    if (!wordWrap) {
+      // Simple calculation without word wrap
+      return targetLineIndex * lineHeight;
+    }
+
+    // With word wrap, measure actual heights of lines before target
+    const measure = getMeasureElement();
+    const editorWidth = editor.clientWidth - 40; // Subtract padding
+    measure.style.width = editorWidth + 'px';
+
+    let totalHeight = 0;
+    for (let i = 0; i < targetLineIndex; i++) {
+      measure.textContent = allLines[i] || ' ';
+      const height = measure.offsetHeight;
+      const visualLines = Math.max(1, Math.round(height / lineHeight));
+      totalHeight += visualLines * lineHeight;
+    }
+
+    return totalHeight;
+  }
+
+  // Scroll preview pane to show the heading at the top
+  function scrollPreviewToHeading(index) {
+    // Get all headings in the preview in document order
+    const allHeadings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+    if (index >= 0 && index < allHeadings.length) {
+      const targetHeading = allHeadings[index];
+
+      // Get positions using getBoundingClientRect for accuracy
+      const paneRect = previewPane.getBoundingClientRect();
+      const headingRect = targetHeading.getBoundingClientRect();
+
+      // Calculate how far the heading is from the top of the visible pane area
+      const offsetFromPaneTop = headingRect.top - paneRect.top;
+
+      // Add that offset to current scroll position, minus a small margin
+      previewPane.scrollTop = previewPane.scrollTop + offsetFromPaneTop - 16;
+    }
+  }
+
+  // Update active outline item based on cursor position
+  function updateActiveOutlineItem() {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) return;
+
+    const cursorPos = editor.selectionStart;
+    const items = outlineList.querySelectorAll('li[data-char]');
+
+    let activeItem = null;
+    items.forEach(item => {
+      item.classList.remove('active');
+      const charIndex = parseInt(item.dataset.char, 10);
+      if (charIndex <= cursorPos) {
+        activeItem = item;
+      }
+    });
+
+    if (activeItem) {
+      activeItem.classList.add('active');
+      // Scroll outline list to show active item
+      const listRect = outlineList.getBoundingClientRect();
+      const itemRect = activeItem.getBoundingClientRect();
+      if (itemRect.top < listRect.top || itemRect.bottom > listRect.bottom) {
+        activeItem.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  initRightSidebar();
+  toggleRightSidebarBtn.addEventListener('click', toggleRightSidebar);
+  outlineToggleBtn.addEventListener('click', toggleRightSidebar);
 
   // Line numbers functionality
   function initLineNumbers() {
@@ -639,8 +813,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Update cursor position on various events
-  editor.addEventListener('keyup', updateCursorPosition);
-  editor.addEventListener('click', updateCursorPosition);
+  editor.addEventListener('keyup', () => {
+    updateCursorPosition();
+    updateActiveOutlineItem();
+  });
+  editor.addEventListener('click', () => {
+    updateCursorPosition();
+    updateActiveOutlineItem();
+  });
   editor.addEventListener('focus', updateCursorPosition);
 
   function setViewMode(mode) {
@@ -674,7 +854,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function updatePreview() {
     const fileData = openFiles.get(activeFilePath);
     if (fileData) {
-      window.electronAPI.parseMarkdown(fileData.content).then((html) => {
+      // Strip frontmatter (YAML between --- markers at the start)
+      let content = fileData.content;
+      const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
+      content = content.replace(frontmatterRegex, '');
+
+      window.electronAPI.parseMarkdown(content).then((html) => {
         contentDiv.innerHTML = html;
       });
     }
@@ -688,6 +873,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return filePath.split(/[/\\]/).pop();
   }
 
+  function getParentFolder(filePath) {
+    if (filePath.startsWith('untitled:')) {
+      return '';
+    }
+    const parts = filePath.split(/[/\\]/);
+    if (parts.length >= 2) {
+      // Return parent folder name
+      return parts[parts.length - 2];
+    }
+    return '';
+  }
+
+  function updateCurrentFilePath() {
+    if (!activeFilePath || activeFilePath.startsWith('untitled:')) {
+      currentFilePathSpan.textContent = '';
+      currentFilePathSpan.title = '';
+      return;
+    }
+    currentFilePathSpan.textContent = activeFilePath;
+    currentFilePathSpan.title = activeFilePath;
+  }
+
   // Render the file list in sidebar
   function renderFileList() {
     fileList.innerHTML = '';
@@ -695,9 +902,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const li = document.createElement('li');
       li.className = filePath === activeFilePath ? 'active' : '';
       li.title = filePath;
+      const parentFolder = getParentFolder(filePath);
       li.innerHTML = `
         <span class="file-icon">📄</span>
-        <span class="file-name">${getFileName(filePath)}</span>
+        <div class="file-info">
+          <span class="file-name">${getFileName(filePath)}</span>
+          ${parentFolder ? `<span class="file-path">${parentFolder}</span>` : ''}
+        </div>
         ${fileData.unsaved ? '<span class="unsaved-dot"></span>' : ''}
         <button class="close-file" title="Close file">×</button>
       `;
@@ -721,8 +932,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const tab = document.createElement('div');
       tab.className = `tab ${filePath === activeFilePath ? 'active' : ''}`;
       tab.title = filePath;
+      const parentFolder = getParentFolder(filePath);
       tab.innerHTML = `
-        <span class="tab-name">${getFileName(filePath)}</span>
+        <div class="tab-info">
+          <span class="tab-name">${getFileName(filePath)}</span>
+          ${parentFolder ? `<span class="tab-path">${parentFolder}</span>` : ''}
+        </div>
         ${fileData.unsaved ? '<span class="unsaved-indicator"></span>' : ''}
         <button class="close-tab" title="Close">×</button>
       `;
@@ -781,6 +996,8 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLineNumbersScroll();
     renderFileList();
     renderTabs();
+    renderOutline();
+    updateCurrentFilePath();
   }
 
   // Close a file
@@ -818,6 +1035,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.title = 'Markdown Editor';
       editor.value = '';
       contentDiv.innerHTML = '';
+      renderOutline();
+      updateCurrentFilePath();
     } else if (filePath === activeFilePath) {
       // Switch to another file
       const nextFile = openFiles.keys().next().value;
@@ -899,6 +1118,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateWordCount();
     renderFileList();
     renderTabs();
+    renderOutline();
+    updateCurrentFilePath();
   }
 
   function newFile() {
@@ -949,6 +1170,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateWordCount();
     renderFileList();
     renderTabs();
+    renderOutline();
+    updateCurrentFilePath();
 
     editor.focus();
   }
@@ -959,6 +1182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Editor input handler with debounced preview update
   let debounceTimer;
+  let outlineDebounceTimer;
   let isStreaming = false;
   let lastStreamUpdate = 0;
   const STREAM_THROTTLE = 50; // Update preview every 50ms during streaming
@@ -984,6 +1208,10 @@ document.addEventListener('DOMContentLoaded', () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(updatePreview, 150);
     }
+
+    // Debounced outline update (longer delay since structure changes less frequently)
+    clearTimeout(outlineDebounceTimer);
+    outlineDebounceTimer = setTimeout(renderOutline, 300);
   });
 
   // Listen for streaming state changes from plugins
