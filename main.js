@@ -393,14 +393,14 @@ ipcMain.handle('show-context-menu', (event, selectionData) => {
       label: 'Cut',
       accelerator: 'CmdOrCtrl+X',
       click: () => {
-        mainWindow.webContents.send('editor:cut');
+        mainWindow.webContents.send('editor:cut', { selectedText, selectionStart, selectionEnd });
       }
     },
     {
       label: 'Copy',
       accelerator: 'CmdOrCtrl+C',
       click: () => {
-        mainWindow.webContents.send('editor:copy');
+        mainWindow.webContents.send('editor:copy', { selectedText, selectionStart, selectionEnd });
       }
     },
     {

@@ -23,8 +23,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   renameFile: (oldPath, newPath) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   showContextMenu: (data) => ipcRenderer.invoke('show-context-menu', data),
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
-  onEditorCut: (callback) => ipcRenderer.on('editor:cut', () => callback()),
-  onEditorCopy: (callback) => ipcRenderer.on('editor:copy', () => callback()),
+  onEditorCut: (callback) => ipcRenderer.on('editor:cut', (event, data) => callback(data)),
+  onEditorCopy: (callback) => ipcRenderer.on('editor:copy', (event, data) => callback(data)),
   onEditorPaste: (callback) => ipcRenderer.on('editor:paste', () => callback()),
   onAIAction: (callback) => ipcRenderer.on('ai:action', (event, data) => callback(data))
 });

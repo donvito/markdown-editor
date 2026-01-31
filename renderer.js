@@ -46,6 +46,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let sidebarWidth = parseInt(localStorage.getItem('sidebarWidth') || '200', 10);
   let rightSidebarWidth = parseInt(localStorage.getItem('rightSidebarWidth') || '220', 10);
 
+  // Utility function to escape HTML special characters
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // Initialize theme
   const lightIcon = themeToggle.querySelector('.light-icon');
   const darkIcon = themeToggle.querySelector('.dark-icon');
@@ -293,9 +304,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return `
       <div class="outline-item-container">
-        <div class="outline-item" data-level="${heading.level}" data-index="${heading.index}" data-char="${heading.charIndex}" data-id="${headingId}" title="${heading.text}">
+        <div class="outline-item" data-level="${heading.level}" data-index="${heading.index}" data-char="${heading.charIndex}" data-id="${headingId}" title="${escapeHtml(heading.text)}">
           ${chevronHtml}
-          <span class="outline-text">${heading.text}</span>
+          <span class="outline-text">${escapeHtml(heading.text)}</span>
         </div>
         ${childrenHtml}
       </div>
@@ -1703,18 +1714,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Handle cut, copy, paste from context menu
-  window.electronAPI.onEditorCut(() => {
-    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+  window.electronAPI.onEditorCut((data) => {
+    const { selectedText, selectionStart, selectionEnd } = data || {};
     if (selectedText) {
       navigator.clipboard.writeText(selectedText);
       editor.focus();
+      // Restore selection before cutting
+      editor.setSelectionRange(selectionStart, selectionEnd);
       document.execCommand('insertText', false, '');
       editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
 
-  window.electronAPI.onEditorCopy(() => {
-    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+  window.electronAPI.onEditorCopy((data) => {
+    const { selectedText } = data || {};
     if (selectedText) {
       navigator.clipboard.writeText(selectedText);
     }

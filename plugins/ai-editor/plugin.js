@@ -126,11 +126,15 @@ class AIEditorPlugin {
         ? `${userPrompt}\n\nContext/Selected text:\n${selectedText}`
         : userPrompt;
 
+      const systemPrompt = selectedText
+        ? 'You are a helpful writing assistant. The user will give you an instruction and some text. Apply the instruction to transform or expand the text. IMPORTANT: Output ONLY the resulting text. Do NOT include the instruction itself, do NOT add explanations or meta-commentary, and do NOT wrap the output in quotes.'
+        : 'You are a helpful writing assistant. Generate text based on the user\'s prompt. Be creative and helpful. Output ONLY the generated text, no meta-commentary or explanations.';
+
       const { promise: streamPromise, abort } = this.api.makeAIRequestStream(
         [
           {
             role: 'system',
-            content: 'You are a helpful writing assistant. Generate text based on the user\'s prompt. Be creative and helpful. Only respond with the generated text, no meta-commentary.'
+            content: systemPrompt
           },
           {
             role: 'user',
