@@ -234,6 +234,239 @@ document.addEventListener('DOMContentLoaded', () => {
     initRightSidebar();
   }
 
+  // Right sidebar tabs
+  const tabOutline = document.getElementById('tab-outline');
+  const tabChat = document.getElementById('tab-chat');
+  const outlinePanel = document.getElementById('outline-panel');
+  const chatPanel = document.getElementById('chat-panel');
+  const chatMessages = document.getElementById('chat-messages');
+  const chatInput = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send');
+  const chatIncludeContext = document.getElementById('chat-include-context');
+  const chatClearBtn = document.getElementById('chat-clear');
+
+  let chatHistory = [];
+  let isChatStreaming = false;
+  let chatAbortFn = null;
+
+  function clearChat() {
+    // Abort any ongoing stream
+    if (chatAbortFn) {
+      chatAbortFn();
+      chatAbortFn = null;
+    }
+
+    // Clear history
+    chatHistory = [];
+    isChatStreaming = false;
+    chatSendBtn.disabled = false;
+
+    // Reset UI
+    chatMessages.innerHTML = `
+      <div class="chat-welcome">
+        <p>Ask AI anything about your document or get writing help.</p>
+      </div>
+    `;
+  }
+
+  chatClearBtn.addEventListener('click', clearChat);
+
+  // Open chat links in external browser
+  chatMessages.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+      e.preventDefault();
+      window.electronAPI.openExternal(link.href);
+    }
+  });
+
+  function switchToTab(tabName) {
+    tabOutline.classList.toggle('active', tabName === 'outline');
+    tabChat.classList.toggle('active', tabName === 'chat');
+    outlinePanel.classList.toggle('active', tabName === 'outline');
+    chatPanel.classList.toggle('active', tabName === 'chat');
+
+    if (tabName === 'chat') {
+      chatInput.focus();
+    }
+  }
+
+  tabOutline.addEventListener('click', () => switchToTab('outline'));
+  tabChat.addEventListener('click', () => switchToTab('chat'));
+
+  // Chat functionality
+  function addChatMessage(role, content, isStreaming = false) {
+    // Remove welcome message if it exists
+    const welcome = chatMessages.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${role}${isStreaming ? ' streaming' : ''}`;
+
+    if (role === 'assistant') {
+      messageDiv.innerHTML = `
+        <div class="chat-message-content"></div>
+        <button class="chat-copy-btn" title="Copy response">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      `;
+      // Store raw content for copying
+      messageDiv.dataset.rawContent = content;
+    } else {
+      messageDiv.innerHTML = `<div class="chat-message-content"></div>`;
+    }
+
+    const contentDiv = messageDiv.querySelector('.chat-message-content');
+
+    if (role === 'assistant') {
+      // Render markdown for assistant messages
+      window.electronAPI.parseMarkdown(content).then(html => {
+        contentDiv.innerHTML = html;
+      });
+
+      // Add copy button handler
+      const copyBtn = messageDiv.querySelector('.chat-copy-btn');
+      copyBtn.addEventListener('click', () => {
+        const rawContent = messageDiv.dataset.rawContent || contentDiv.textContent;
+        navigator.clipboard.writeText(rawContent).then(() => {
+          copyBtn.classList.add('copied');
+          setTimeout(() => copyBtn.classList.remove('copied'), 1500);
+        });
+      });
+    } else {
+      contentDiv.textContent = content;
+    }
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    return messageDiv;
+  }
+
+  function updateChatMessage(messageDiv, content) {
+    const contentDiv = messageDiv.querySelector('.chat-message-content');
+    // Store raw content for copying
+    messageDiv.dataset.rawContent = content;
+    window.electronAPI.parseMarkdown(content).then(html => {
+      contentDiv.innerHTML = html;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  }
+
+  async function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message || isChatStreaming) return;
+
+    // Add user message
+    addChatMessage('user', message);
+    chatHistory.push({ role: 'user', content: message });
+
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    chatSendBtn.disabled = true;
+    isChatStreaming = true;
+
+    // Add assistant message placeholder
+    const assistantDiv = addChatMessage('assistant', '', true);
+
+    try {
+      // Build system message with optional document context
+      let systemContent = 'You are a helpful AI assistant in a markdown editor. Help users with writing, editing, and answering questions. Keep responses concise and helpful. Use markdown formatting when appropriate.';
+
+      if (chatIncludeContext.checked && activeFilePath && openFiles.has(activeFilePath)) {
+        const fileData = openFiles.get(activeFilePath);
+        const fileName = getFileName(activeFilePath);
+        systemContent += `\n\nThe user is currently editing a document named "${fileName}". Here is the document content:\n\n---\n${fileData.content}\n---\n\nYou can reference this document when answering questions.`;
+      }
+
+      // Build messages array for API
+      const apiMessages = [
+        {
+          role: 'system',
+          content: systemContent
+        },
+        ...chatHistory
+      ];
+
+      let fullResponse = '';
+      let chunkHandlerRef, doneHandlerRef, errorHandlerRef;
+
+      const cleanup = () => {
+        if (chunkHandlerRef) window.pluginAPI.removeAIStreamListener('chunk', chunkHandlerRef);
+        if (doneHandlerRef) window.pluginAPI.removeAIStreamListener('done', doneHandlerRef);
+        if (errorHandlerRef) window.pluginAPI.removeAIStreamListener('error', errorHandlerRef);
+        chatAbortFn = null;
+      };
+
+      // Start the stream and get streamId
+      const { streamId } = await window.pluginAPI.makeAIRequestStream('ai-editor', 'chat/completions', {
+        messages: apiMessages
+      });
+
+      // Set up handlers that check for matching streamId
+      const chunkHandler = (data) => {
+        if (data.streamId === streamId) {
+          fullResponse += data.chunk;
+          updateChatMessage(assistantDiv, fullResponse);
+        }
+      };
+
+      const doneHandler = (data) => {
+        if (data.streamId === streamId) {
+          assistantDiv.classList.remove('streaming');
+          chatHistory.push({ role: 'assistant', content: fullResponse });
+          isChatStreaming = false;
+          chatSendBtn.disabled = false;
+          cleanup();
+        }
+      };
+
+      const errorHandler = (data) => {
+        if (data.streamId === streamId) {
+          assistantDiv.classList.remove('streaming');
+          updateChatMessage(assistantDiv, 'Error: ' + (data.error || 'Failed to get response'));
+          isChatStreaming = false;
+          chatSendBtn.disabled = false;
+          cleanup();
+        }
+      };
+
+      chunkHandlerRef = window.pluginAPI.onAIStreamChunk(chunkHandler);
+      doneHandlerRef = window.pluginAPI.onAIStreamDone(doneHandler);
+      errorHandlerRef = window.pluginAPI.onAIStreamError(errorHandler);
+
+      chatAbortFn = () => {
+        cleanup();
+        window.pluginAPI.abortAIRequestStream(streamId);
+      };
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      assistantDiv.classList.remove('streaming');
+      updateChatMessage(assistantDiv, 'Error: ' + error.message);
+      isChatStreaming = false;
+      chatSendBtn.disabled = false;
+    }
+  }
+
+  chatSendBtn.addEventListener('click', sendChatMessage);
+
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+
+  // Auto-resize chat input
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+  });
+
   // Parse headings from markdown content
   function parseHeadings(content) {
     const headings = [];
