@@ -211,7 +211,19 @@ ipcMain.handle('show-item-in-folder', (event, filePath) => {
 
 ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
   try {
+    // Check if destination file already exists
+    if (fs.existsSync(newPath)) {
+      return { success: false, error: 'A file with that name already exists' };
+    }
     fs.renameSync(oldPath, newPath);
+
+    // Update unsaved files tracking if the old path was tracked
+    if (unsavedFiles.has(oldPath)) {
+      const fileName = newPath.split(/[/\\]/).pop();
+      unsavedFiles.delete(oldPath);
+      unsavedFiles.set(newPath, fileName);
+    }
+
     return { success: true, newPath };
   } catch (error) {
     return { success: false, error: error.message };

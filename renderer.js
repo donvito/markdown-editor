@@ -563,7 +563,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const fileData = openFiles.get(activeFilePath);
-    const headings = parseHeadings(fileData.content);
+    // Strip frontmatter before parsing headings (same as preview)
+    // But track the frontmatter length to adjust charIndex for editor navigation
+    let content = fileData.content;
+    const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
+    const frontmatterMatch = content.match(frontmatterRegex);
+    const frontmatterLength = frontmatterMatch ? frontmatterMatch[0].length : 0;
+    content = content.replace(frontmatterRegex, '');
+
+    const headings = parseHeadings(content);
+
+    // Adjust charIndex to account for stripped frontmatter
+    headings.forEach(h => {
+      h.charIndex += frontmatterLength;
+    });
 
     if (headings.length === 0) {
       outlineList.innerHTML = '<div class="outline-empty">No headings found</div>';
@@ -1471,6 +1484,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update the open file entry
         const fileData = openFiles.get(filePath);
         if (fileData) {
+          // Notify main process about the path change
+          window.electronAPI.notifyFileClosed(filePath);
+          if (fileData.unsaved) {
+            window.electronAPI.notifyFileUnsaved(newPath, newName);
+          }
+
           openFiles.delete(filePath);
           openFiles.set(newPath, fileData);
 
