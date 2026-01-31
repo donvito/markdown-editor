@@ -224,6 +224,376 @@ document.addEventListener('DOMContentLoaded', () => {
   // Word wrap toggle button
   toggleWordWrapBtn.addEventListener('click', toggleWordWrap);
 
+  // Inline Formatting Toolbar in Header
+  const formattingToolbarInline = document.getElementById('formatting-toolbar-inline');
+
+  // Check if selected text has specific formatting
+  function checkFormatting(text, before, after) {
+    if (!text || text.length === 0) return false;
+    return text.startsWith(before) && text.endsWith(after) && text.length >= before.length + after.length;
+  }
+
+  // Check if lines have a specific prefix
+  function checkLinePrefix(text, prefix) {
+    if (!text) return false;
+    const lines = text.split('\n');
+    return lines.every(line => line.startsWith(prefix) || line.trim() === '');
+  }
+
+  // Check if text is a numbered list
+  function checkNumberedList(text) {
+    if (!text) return false;
+    const lines = text.split('\n');
+    return lines.every((line, i) => {
+      const match = line.match(/^(\d+)\.\s/);
+      return match || line.trim() === '';
+    });
+  }
+
+  // Update button active states based on selection
+  function updateToolbarState() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    // Get extended selection to check for surrounding markers
+    const extStart = Math.max(0, start - 3);
+    const extEnd = Math.min(value.length, end + 3);
+    const extendedContext = value.substring(extStart, extEnd);
+
+    // Check inline formatting by looking at what surrounds the selection
+    const beforeSel = value.substring(Math.max(0, start - 2), start);
+    const afterSel = value.substring(end, Math.min(value.length, end + 2));
+
+    // Bold: check for ** around selection
+    const isBold = (beforeSel.endsWith('**') && afterSel.startsWith('**')) ||
+                   checkFormatting(selectedText, '**', '**');
+    document.getElementById('fmt-bold').classList.toggle('active', isBold);
+
+    // Italic: check for * around selection (but not **)
+    const isItalic = (beforeSel.endsWith('*') && !beforeSel.endsWith('**') &&
+                      afterSel.startsWith('*') && !afterSel.startsWith('**')) ||
+                     (checkFormatting(selectedText, '*', '*') && !checkFormatting(selectedText, '**', '**'));
+    document.getElementById('fmt-italic').classList.toggle('active', isItalic);
+
+    // Strikethrough
+    const isStrike = (beforeSel.endsWith('~~') && afterSel.startsWith('~~')) ||
+                     checkFormatting(selectedText, '~~', '~~');
+    document.getElementById('fmt-strikethrough').classList.toggle('active', isStrike);
+
+    // Inline code
+    const isCode = (beforeSel.endsWith('`') && !beforeSel.endsWith('``') &&
+                    afterSel.startsWith('`') && !afterSel.startsWith('``')) ||
+                   (checkFormatting(selectedText, '`', '`') && !checkFormatting(selectedText, '```', '```'));
+    document.getElementById('fmt-code').classList.toggle('active', isCode);
+
+    // Get full lines for line-based formatting
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+    const fullLines = value.substring(lineStart, lineEnd);
+
+    // Heading - check specific levels
+    const headingMatch = fullLines.match(/^(#{1,6})\s/);
+    const headingLevel = headingMatch ? headingMatch[1].length : 0;
+    document.getElementById('fmt-h1').classList.toggle('active', headingLevel === 1);
+    document.getElementById('fmt-h2').classList.toggle('active', headingLevel === 2);
+    document.getElementById('fmt-h3').classList.toggle('active', headingLevel === 3);
+    document.getElementById('fmt-h4').classList.toggle('active', headingLevel === 4);
+    document.getElementById('fmt-h5').classList.toggle('active', headingLevel === 5);
+    document.getElementById('fmt-h6').classList.toggle('active', headingLevel === 6);
+
+    // Bullet list
+    const isBullet = checkLinePrefix(fullLines, '- ') || checkLinePrefix(fullLines, '* ');
+    document.getElementById('fmt-ul').classList.toggle('active', isBullet);
+
+    // Numbered list
+    const isNumbered = checkNumberedList(fullLines);
+    document.getElementById('fmt-ol').classList.toggle('active', isNumbered);
+
+    // Quote
+    const isQuote = checkLinePrefix(fullLines, '> ');
+    document.getElementById('fmt-quote').classList.toggle('active', isQuote);
+
+    // Link - check if selection or surrounding is a link
+    const linkRegex = /\[([^\]]*)\]\([^)]*\)/;
+    const isLink = linkRegex.test(selectedText) || linkRegex.test(extendedContext);
+    document.getElementById('fmt-link').classList.toggle('active', isLink);
+
+    // Code block
+    const isCodeBlock = selectedText.startsWith('```') && selectedText.endsWith('```');
+    document.getElementById('fmt-codeblock').classList.toggle('active', isCodeBlock);
+  }
+
+
+  // Toggle formatting (add or remove)
+  function toggleWrapFormatting(before, after) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    // Check if formatting already exists around selection
+    const beforeSel = value.substring(Math.max(0, start - before.length), start);
+    const afterSel = value.substring(end, Math.min(value.length, end + after.length));
+
+    editor.focus();
+
+    if (beforeSel === before && afterSel === after) {
+      // Remove formatting from around selection
+      editor.selectionStart = start - before.length;
+      editor.selectionEnd = end + after.length;
+      document.execCommand('insertText', false, selectedText);
+      editor.selectionStart = start - before.length;
+      editor.selectionEnd = end - before.length;
+    } else if (checkFormatting(selectedText, before, after)) {
+      // Remove formatting from within selection
+      const inner = selectedText.substring(before.length, selectedText.length - after.length);
+      document.execCommand('insertText', false, inner);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + inner.length;
+    } else {
+      // Add formatting
+      const replacement = before + selectedText + after;
+      document.execCommand('insertText', false, replacement);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + replacement.length;
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleLinePrefix(prefix) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+
+    // Find line boundaries
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const selectedLines = value.substring(lineStart, lineEnd);
+    const lines = selectedLines.split('\n');
+
+    // Check if all lines have the prefix
+    const allHavePrefix = lines.every(line => line.startsWith(prefix) || line.trim() === '');
+
+    let newLines;
+    if (allHavePrefix) {
+      // Remove prefix
+      newLines = lines.map(line => {
+        if (line.startsWith(prefix)) {
+          return line.substring(prefix.length);
+        }
+        return line;
+      }).join('\n');
+    } else {
+      // Add prefix
+      newLines = lines.map(line => prefix + line).join('\n');
+    }
+
+    editor.focus();
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    document.execCommand('insertText', false, newLines);
+
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + newLines.length;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleNumberedList() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const selectedLines = value.substring(lineStart, lineEnd);
+    const lines = selectedLines.split('\n');
+
+    const isNumbered = checkNumberedList(selectedLines);
+
+    let newLines;
+    if (isNumbered) {
+      // Remove numbering
+      newLines = lines.map(line => {
+        return line.replace(/^\d+\.\s/, '');
+      }).join('\n');
+    } else {
+      // Add numbering
+      newLines = lines.map((line, i) => `${i + 1}. ${line}`).join('\n');
+    }
+
+    editor.focus();
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    document.execCommand('insertText', false, newLines);
+
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + newLines.length;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleHeading(targetLevel) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+
+    let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const line = value.substring(lineStart, lineEnd);
+
+    // Check current heading level
+    const headingMatch = line.match(/^(#{1,6})\s/);
+    const currentLevel = headingMatch ? headingMatch[1].length : 0;
+
+    let newLine;
+    if (currentLevel === targetLevel) {
+      // Same level - remove heading
+      newLine = line.replace(/^#{1,6}\s/, '');
+    } else if (currentLevel > 0) {
+      // Different level - replace with target level
+      const hashes = '#'.repeat(targetLevel);
+      newLine = line.replace(/^#{1,6}\s/, hashes + ' ');
+    } else {
+      // No heading - add target level
+      const hashes = '#'.repeat(targetLevel);
+      newLine = hashes + ' ' + line;
+    }
+
+    editor.focus();
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    document.execCommand('insertText', false, newLine);
+
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineStart + newLine.length;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+    closeHeadingDropdown();
+  }
+
+  // Heading dropdown handling
+  function toggleLink() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    // Check if it's already a link
+    const linkMatch = selectedText.match(/^\[([^\]]*)\]\(([^)]*)\)$/);
+
+    editor.focus();
+
+    if (linkMatch) {
+      // Remove link formatting, keep just the text
+      document.execCommand('insertText', false, linkMatch[1]);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + linkMatch[1].length;
+    } else {
+      // Add link formatting
+      const replacement = `[${selectedText}](url)`;
+      document.execCommand('insertText', false, replacement);
+      // Select 'url' for easy replacement
+      const urlStart = start + selectedText.length + 3;
+      editor.selectionStart = urlStart;
+      editor.selectionEnd = urlStart + 3;
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  function toggleCodeBlock() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const value = editor.value;
+    const selectedText = value.substring(start, end);
+
+    editor.focus();
+
+    // Check if already a code block
+    if (selectedText.startsWith('```') && selectedText.endsWith('```')) {
+      // Remove code block
+      let inner = selectedText.substring(3, selectedText.length - 3);
+      // Remove first line if it's the language specifier
+      if (inner.startsWith('\n')) {
+        inner = inner.substring(1);
+      } else {
+        const firstNewline = inner.indexOf('\n');
+        if (firstNewline !== -1) {
+          inner = inner.substring(firstNewline + 1);
+        }
+      }
+      if (inner.endsWith('\n')) {
+        inner = inner.substring(0, inner.length - 1);
+      }
+      document.execCommand('insertText', false, inner);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + inner.length;
+    } else {
+      // Add code block
+      const replacement = '```\n' + selectedText + '\n```';
+      document.execCommand('insertText', false, replacement);
+      editor.selectionStart = start;
+      editor.selectionEnd = start + replacement.length;
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateToolbarState();
+  }
+
+  // Formatting toolbar button event listeners
+  document.getElementById('fmt-bold').addEventListener('click', () => toggleWrapFormatting('**', '**'));
+  document.getElementById('fmt-italic').addEventListener('click', () => toggleWrapFormatting('*', '*'));
+  document.getElementById('fmt-strikethrough').addEventListener('click', () => toggleWrapFormatting('~~', '~~'));
+  document.getElementById('fmt-code').addEventListener('click', () => toggleWrapFormatting('`', '`'));
+  document.getElementById('fmt-h1').addEventListener('click', () => toggleHeading(1));
+  document.getElementById('fmt-h2').addEventListener('click', () => toggleHeading(2));
+  document.getElementById('fmt-h3').addEventListener('click', () => toggleHeading(3));
+  document.getElementById('fmt-h4').addEventListener('click', () => toggleHeading(4));
+  document.getElementById('fmt-h5').addEventListener('click', () => toggleHeading(5));
+  document.getElementById('fmt-h6').addEventListener('click', () => toggleHeading(6));
+  document.getElementById('fmt-link').addEventListener('click', toggleLink);
+  document.getElementById('fmt-ul').addEventListener('click', () => toggleLinePrefix('- '));
+  document.getElementById('fmt-ol').addEventListener('click', toggleNumberedList);
+  document.getElementById('fmt-quote').addEventListener('click', () => toggleLinePrefix('> '));
+  document.getElementById('fmt-codeblock').addEventListener('click', toggleCodeBlock);
+
+  // Update toolbar button active states on selection change
+  editor.addEventListener('select', updateToolbarState);
+  editor.addEventListener('click', updateToolbarState);
+  editor.addEventListener('keyup', updateToolbarState);
+
+  // Keyboard shortcuts for formatting
+  editor.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          toggleWrapFormatting('**', '**');
+          break;
+        case 'i':
+          e.preventDefault();
+          toggleWrapFormatting('*', '*');
+          break;
+      }
+    }
+  });
+
   // Update line numbers when editor is resized (affects word wrap)
   let resizeTimer;
   const resizeObserver = new ResizeObserver(() => {
@@ -427,6 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
       welcomeDiv.style.display = 'flex';
       editorContainer.style.display = 'none';
       toggleGroup.style.display = 'none';
+      formattingToolbarInline.style.display = 'none';
       fileNameSpan.textContent = '';
       document.title = 'Markdown Editor';
       editor.value = '';
@@ -498,6 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
+    formattingToolbarInline.style.display = 'flex';
     setViewMode('split');
 
     editor.value = content;
@@ -543,6 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
+    formattingToolbarInline.style.display = 'flex';
     setViewMode('split');
 
     editor.value = '';
@@ -623,6 +996,15 @@ document.addEventListener('DOMContentLoaded', () => {
   donateLink.addEventListener('click', (e) => {
     e.preventDefault();
     window.electronAPI.openExternal('https://buymeacoffee.com/donvitocodes');
+  });
+
+  // Open links in preview pane in external browser
+  contentDiv.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+      e.preventDefault();
+      window.electronAPI.openExternal(link.href);
+    }
   });
 
   // Open button
@@ -732,17 +1114,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle right-click context menu for AI actions
+  // Handle right-click context menu
   editor.addEventListener('contextmenu', (e) => {
-    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+    e.preventDefault();
+    window.electronAPI.showContextMenu({
+      selectedText: editor.value.substring(editor.selectionStart, editor.selectionEnd),
+      selectionStart: editor.selectionStart,
+      selectionEnd: editor.selectionEnd
+    });
+  });
 
-    if (selectedText.length > 0) {
-      e.preventDefault();
-      window.electronAPI.showContextMenu({
-        selectedText,
-        selectionStart: editor.selectionStart,
-        selectionEnd: editor.selectionEnd
-      });
+  // Handle cut, copy, paste from context menu
+  window.electronAPI.onEditorCut(() => {
+    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+    if (selectedText) {
+      navigator.clipboard.writeText(selectedText);
+      editor.focus();
+      document.execCommand('insertText', false, '');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+
+  window.electronAPI.onEditorCopy(() => {
+    const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+    if (selectedText) {
+      navigator.clipboard.writeText(selectedText);
+    }
+  });
+
+  window.electronAPI.onEditorPaste(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        editor.focus();
+        document.execCommand('insertText', false, text);
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    } catch (err) {
+      console.error('Failed to paste:', err);
     }
   });
 
@@ -750,6 +1159,24 @@ document.addEventListener('DOMContentLoaded', () => {
   window.pluginAPI.onContextMenuAction((data) => {
     // Dispatch event for plugin host to handle
     document.dispatchEvent(new CustomEvent('plugin:context-menu-action', { detail: data }));
+  });
+
+  // Handle AI actions from context menu
+  window.electronAPI.onAIAction((data) => {
+    const { actionId, selectedText, selectionStart, selectionEnd } = data;
+    // Restore selection in editor
+    editor.focus();
+    editor.setSelectionRange(selectionStart, selectionEnd);
+    // Dispatch to plugin
+    document.dispatchEvent(new CustomEvent('plugin:context-menu-action', {
+      detail: {
+        pluginId: 'ai-editor',
+        actionId,
+        selectedText,
+        selectionStart,
+        selectionEnd
+      }
+    }));
   });
 
   // Cmd/Ctrl+K shortcut for AI Generate with prompt

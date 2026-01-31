@@ -20,7 +20,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notifyFileClosed: (filePath) => ipcRenderer.send('file-closed', filePath),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   showContextMenu: (data) => ipcRenderer.invoke('show-context-menu', data),
-  onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback())
+  onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
+  onEditorCut: (callback) => ipcRenderer.on('editor:cut', () => callback()),
+  onEditorCopy: (callback) => ipcRenderer.on('editor:copy', () => callback()),
+  onEditorPaste: (callback) => ipcRenderer.on('editor:paste', () => callback()),
+  onAIAction: (callback) => ipcRenderer.on('ai:action', (event, data) => callback(data))
 });
 
 // Plugin API for plugin system

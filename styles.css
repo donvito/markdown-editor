@@ -47,7 +47,7 @@ header h1 {
 
 .toolbar button {
   padding: 6px 12px;
-  background-color: #0066cc;
+  background-color: #333;
   color: white;
   border: none;
   border-radius: 4px;
@@ -57,12 +57,114 @@ header h1 {
 }
 
 .toolbar button:hover:not(:disabled) {
-  background-color: #0052a3;
+  background-color: #555;
 }
 
 .toolbar button:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background-color: #ddd;
+  margin: 0 4px;
+}
+
+/* Inline Formatting Toolbar in Header */
+.formatting-toolbar-inline {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fmt-btn-inline {
+  padding: 4px 8px;
+  background-color: transparent;
+  color: #555;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.fmt-btn-inline:hover {
+  background-color: #e8e8e8;
+  color: #333;
+}
+
+.fmt-btn-inline:active {
+  background-color: #ddd;
+}
+
+.fmt-btn-inline.active {
+  background-color: #e0e0e0;
+  color: #111;
+}
+
+.fmt-btn-inline svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fmt-heading-btn {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 24px;
+  padding: 4px 5px;
+}
+
+.fmt-separator-inline {
+  width: 1px;
+  height: 18px;
+  background-color: #ddd;
+  margin: 0 4px;
+}
+
+.fmt-dropdown-inline {
+  position: relative;
+}
+
+.fmt-dropdown-inline .fmt-btn-inline {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.fmt-dropdown-inline .fmt-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 140px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+  z-index: 1000;
+}
+
+.fmt-dropdown-inline.open .fmt-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.fmt-dropdown-inline.open .fmt-dropdown-arrow {
+  transform: rotate(180deg);
 }
 
 .toggle-group {
@@ -92,8 +194,223 @@ header h1 {
 }
 
 .toggle-btn.active {
-  background-color: #0066cc !important;
+  background-color: #333 !important;
   color: white !important;
+}
+
+/* Floating Formatting Toolbar */
+.formatting-toolbar {
+  position: fixed;
+  z-index: 10005;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  padding: 6px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.formatting-toolbar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.formatting-toolbar.hidden {
+  display: none;
+}
+
+.fmt-row {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.fmt-divider {
+  height: 1px;
+  background-color: #e8e8e8;
+  margin: 4px 0;
+}
+
+.fmt-btn {
+  padding: 5px 8px;
+  background-color: transparent;
+  color: #555;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.fmt-btn:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.fmt-btn:active {
+  background-color: #e0e0e0;
+}
+
+.fmt-btn.active {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+.fmt-btn.active:hover {
+  background-color: #d2e3fc;
+}
+
+.fmt-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fmt-separator {
+  width: 1px;
+  height: 18px;
+  background-color: #e0e0e0;
+  margin: 0 4px;
+}
+
+/* AI buttons */
+.fmt-ai-row {
+  gap: 1px;
+}
+
+.fmt-ai-btn {
+  font-size: 10px;
+  padding: 3px 6px;
+  min-width: auto;
+  height: 22px;
+  color: #666;
+}
+
+.fmt-ai-btn:hover {
+  color: #1a73e8;
+  background-color: #e8f0fe;
+}
+
+.fmt-ai-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.fmt-ai-primary {
+  gap: 3px;
+  color: #1a73e8;
+  font-weight: 600;
+  background-color: #e8f0fe;
+  padding: 3px 8px;
+}
+
+.fmt-ai-primary:hover {
+  background-color: #d2e3fc;
+}
+
+/* Heading Dropdown */
+.fmt-dropdown {
+  position: relative;
+}
+
+.fmt-dropdown .fmt-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.fmt-heading-label {
+  font-weight: 600;
+}
+
+.fmt-dropdown-arrow {
+  opacity: 0.6;
+  transition: transform 0.15s;
+}
+
+.fmt-dropdown.open .fmt-dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.fmt-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  min-width: 140px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 10;
+}
+
+.fmt-dropdown.open .fmt-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+.fmt-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s;
+}
+
+.fmt-dropdown-item:hover {
+  background-color: #f0f0f0;
+}
+
+.fmt-dropdown-item.active {
+  background-color: #e8f0fe;
+}
+
+.fmt-dropdown-item.active:hover {
+  background-color: #d2e3fc;
+}
+
+.heading-preview {
+  font-weight: 700;
+  color: #333;
+  min-width: 28px;
+}
+
+.heading-preview.h1 {
+  font-size: 18px;
+}
+
+.heading-preview.h2 {
+  font-size: 16px;
+}
+
+.heading-preview.h3 {
+  font-size: 14px;
+}
+
+.heading-desc {
+  font-size: 12px;
+  color: #666;
 }
 
 #file-name {
@@ -699,11 +1016,11 @@ body.dark header h1 {
 }
 
 body.dark .toolbar button {
-  background-color: #0077dd;
+  background-color: #555;
 }
 
 body.dark .toolbar button:hover:not(:disabled) {
-  background-color: #0066cc;
+  background-color: #666;
 }
 
 body.dark .toolbar button:disabled {
@@ -726,8 +1043,122 @@ body.dark .toggle-btn:hover {
 }
 
 body.dark .toggle-btn.active {
-  background-color: #0077dd !important;
+  background-color: #666 !important;
   color: white !important;
+}
+
+/* Dark mode formatting toolbar */
+body.dark .formatting-toolbar {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+body.dark .fmt-btn {
+  color: #ccc;
+}
+
+body.dark .fmt-btn:hover {
+  background-color: #3d3d3d;
+  color: #fff;
+}
+
+body.dark .fmt-btn:active {
+  background-color: #4d4d4d;
+}
+
+body.dark .fmt-btn.active {
+  background-color: #1a3a5c;
+  color: #8ab4f8;
+}
+
+body.dark .fmt-btn.active:hover {
+  background-color: #234b75;
+}
+
+body.dark .fmt-separator {
+  background-color: #404040;
+}
+
+body.dark .fmt-divider {
+  background-color: #404040;
+}
+
+body.dark .fmt-ai-btn {
+  color: #999;
+}
+
+body.dark .fmt-ai-btn:hover {
+  color: #8ab4f8;
+  background-color: #1a3a5c;
+}
+
+body.dark .fmt-ai-primary {
+  color: #8ab4f8;
+  background-color: #1a3a5c;
+}
+
+body.dark .fmt-ai-primary:hover {
+  background-color: #234b75;
+}
+
+body.dark .fmt-dropdown-menu {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+body.dark .fmt-dropdown-item:hover {
+  background-color: #3d3d3d;
+}
+
+body.dark .fmt-dropdown-item.active {
+  background-color: #1a3a5c;
+}
+
+body.dark .fmt-dropdown-item.active:hover {
+  background-color: #234b75;
+}
+
+body.dark .heading-preview {
+  color: #e0e0e0;
+}
+
+/* Dark mode inline formatting toolbar */
+body.dark .toolbar-separator {
+  background-color: #404040;
+}
+
+body.dark .fmt-btn-inline {
+  color: #ccc;
+}
+
+body.dark .fmt-btn-inline:hover {
+  background-color: #3d3d3d;
+  color: #fff;
+}
+
+body.dark .fmt-btn-inline:active {
+  background-color: #4d4d4d;
+}
+
+body.dark .fmt-btn-inline.active {
+  background-color: #4d4d4d;
+  color: #fff;
+}
+
+body.dark .fmt-separator-inline {
+  background-color: #404040;
+}
+
+body.dark .fmt-dropdown-inline .fmt-dropdown-menu {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+body.dark .heading-desc {
+  color: #999;
 }
 
 body.dark #file-name {
