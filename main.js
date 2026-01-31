@@ -211,8 +211,14 @@ ipcMain.handle('show-item-in-folder', (event, filePath) => {
 ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
   try {
     // Check if destination file already exists
+    // Allow case-only renames on case-insensitive filesystems by checking if paths point to the same file
     if (fs.existsSync(newPath)) {
-      return { success: false, error: 'A file with that name already exists' };
+      const oldStats = fs.statSync(oldPath);
+      const newStats = fs.statSync(newPath);
+      const isSameFile = oldStats.ino === newStats.ino && oldStats.dev === newStats.dev;
+      if (!isSameFile) {
+        return { success: false, error: 'A file with that name already exists' };
+      }
     }
     fs.renameSync(oldPath, newPath);
 
