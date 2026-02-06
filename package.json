@@ -43,7 +43,10 @@
       "category": "public.app-category.productivity"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "icon.png",
       "category": "Office"
     }
@@ -52,7 +55,8 @@
     "electron-store": "^8.1.0",
     "highlight.js": "^11.9.0",
     "marked": "^12.0.0",
-    "marked-highlight": "^2.1.0"
+    "marked-highlight": "^2.1.0",
+    "mermaid": "^11.12.2"
   },
   "devDependencies": {
     "electron": "^40.1.0",
