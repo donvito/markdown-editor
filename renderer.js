@@ -80,6 +80,15 @@ document.addEventListener('DOMContentLoaded', () => {
     isDarkMode = !isDarkMode;
     localStorage.setItem('darkMode', isDarkMode);
     initTheme();
+    // Update mermaid theme and re-render diagrams
+    if (typeof mermaid !== 'undefined') {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: isDarkMode ? 'dark' : 'default',
+        securityLevel: 'strict'
+      });
+      updatePreview();
+    }
   }
 
   // Initialize theme on load
@@ -1331,6 +1340,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Initialize mermaid for diagram rendering
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDarkMode ? 'dark' : 'default',
+      securityLevel: 'strict'
+    });
+  }
+
   function updatePreview() {
     const fileData = openFiles.get(activeFilePath);
     if (fileData) {
@@ -1340,9 +1358,190 @@ document.addEventListener('DOMContentLoaded', () => {
 
       window.electronAPI.parseMarkdown(content).then((html) => {
         contentDiv.innerHTML = html;
+        renderMermaidDiagrams();
       });
     }
   }
+
+  function renderMermaidDiagrams() {
+    if (typeof mermaid === 'undefined') return;
+    // Mermaid code blocks are rendered as <pre><code class="hljs language-mermaid">...</code></pre>
+    const mermaidCodes = contentDiv.querySelectorAll('code.language-mermaid');
+    if (mermaidCodes.length === 0) return;
+
+    const mermaidNodes = [];
+    mermaidCodes.forEach((codeEl, i) => {
+      const pre = codeEl.parentElement;
+      // Replace <pre><code> with a <pre class="mermaid"> containing the raw diagram text
+      const mermaidPre = document.createElement('pre');
+      mermaidPre.className = 'mermaid';
+      mermaidPre.id = `mermaid-${Date.now()}-${i}`;
+      mermaidPre.textContent = codeEl.textContent;
+      pre.replaceWith(mermaidPre);
+      mermaidNodes.push(mermaidPre);
+    });
+
+    mermaid.run({ nodes: mermaidNodes }).then(() => {
+      // Add click-to-zoom on rendered diagrams
+      mermaidNodes.forEach((node) => {
+        node.style.cursor = 'pointer';
+        node.title = 'Click to enlarge';
+        node.addEventListener('click', () => openMermaidLightbox(node));
+      });
+    }).catch((err) => {
+      console.warn('Mermaid rendering error:', err);
+    });
+  }
+
+  // Mermaid lightbox with pan & zoom
+  const mermaidLightbox = document.getElementById('mermaid-lightbox');
+  const mermaidLightboxBody = document.getElementById('mermaid-lightbox-body');
+  const mermaidLightboxSvgWrap = document.getElementById('mermaid-lightbox-svg-wrap');
+  const mermaidLightboxClose = document.getElementById('mermaid-lightbox-close');
+  const mermaidLightboxOverlay = mermaidLightbox.querySelector('.mermaid-lightbox-overlay');
+  const mermaidLbZoomIn = document.getElementById('mermaid-lb-zoom-in');
+  const mermaidLbZoomOut = document.getElementById('mermaid-lb-zoom-out');
+  const mermaidLbZoomLevel = document.getElementById('mermaid-lb-zoom-level');
+  const mermaidLbFit = document.getElementById('mermaid-lb-fit');
+  const mermaidLbActual = document.getElementById('mermaid-lb-actual');
+
+  let lbZoom = 1;
+  let lbNaturalW = 0;
+  let lbNaturalH = 0;
+
+  function lbSetZoom(z) {
+    lbZoom = Math.max(0.1, Math.min(5, z));
+    mermaidLbZoomLevel.textContent = Math.round(lbZoom * 100) + '%';
+    mermaidLightboxSvgWrap.style.width = (lbNaturalW * lbZoom) + 'px';
+    mermaidLightboxSvgWrap.style.height = (lbNaturalH * lbZoom) + 'px';
+  }
+
+  function lbGetSvgNaturalSize(svg) {
+    // Prefer viewBox dimensions (the actual coordinate space) over width/height attributes
+    const viewBox = svg.getAttribute('viewBox');
+    if (viewBox) {
+      const parts = viewBox.split(/[\s,]+/);
+      const vbW = parseFloat(parts[2]);
+      const vbH = parseFloat(parts[3]);
+      if (vbW > 0 && vbH > 0) return { w: vbW, h: vbH };
+    }
+    // Fall back to explicit attributes then bounding rect
+    const w = parseFloat(svg.getAttribute('width')) || svg.getBoundingClientRect().width;
+    const h = parseFloat(svg.getAttribute('height')) || svg.getBoundingClientRect().height;
+    return { w, h };
+  }
+
+  function lbFitToView() {
+    const bodyRect = mermaidLightboxBody.getBoundingClientRect();
+    const padX = 48, padY = 48;
+    const scaleX = (bodyRect.width - padX) / lbNaturalW;
+    const scaleY = (bodyRect.height - padY) / lbNaturalH;
+    lbSetZoom(Math.min(scaleX, scaleY));
+  }
+
+  function openMermaidLightbox(sourceNode) {
+    const svg = sourceNode.querySelector('svg');
+    if (!svg) return;
+
+    const cloned = svg.cloneNode(true);
+    // Read natural dimensions from the SVG viewBox
+    const size = lbGetSvgNaturalSize(svg);
+    lbNaturalW = size.w;
+    lbNaturalH = size.h;
+
+    cloned.removeAttribute('width');
+    cloned.removeAttribute('height');
+    cloned.style.width = '100%';
+    cloned.style.height = '100%';
+
+    mermaidLightboxSvgWrap.innerHTML = '';
+    mermaidLightboxSvgWrap.appendChild(cloned);
+    mermaidLightbox.classList.remove('hidden');
+
+    // Start at fit-to-view
+    requestAnimationFrame(() => {
+      lbFitToView();
+      // Center scroll
+      mermaidLightboxBody.scrollLeft = (mermaidLightboxBody.scrollWidth - mermaidLightboxBody.clientWidth) / 2;
+      mermaidLightboxBody.scrollTop = (mermaidLightboxBody.scrollHeight - mermaidLightboxBody.clientHeight) / 2;
+    });
+  }
+
+  function closeMermaidLightbox() {
+    mermaidLightbox.classList.add('hidden');
+    mermaidLightboxSvgWrap.innerHTML = '';
+  }
+
+  // Zoom controls
+  mermaidLbZoomIn.addEventListener('click', () => {
+    lbSetZoom(lbZoom * 1.25);
+  });
+  mermaidLbZoomOut.addEventListener('click', () => {
+    lbSetZoom(lbZoom / 1.25);
+  });
+  mermaidLbFit.addEventListener('click', () => {
+    lbFitToView();
+    mermaidLightboxBody.scrollLeft = (mermaidLightboxBody.scrollWidth - mermaidLightboxBody.clientWidth) / 2;
+    mermaidLightboxBody.scrollTop = (mermaidLightboxBody.scrollHeight - mermaidLightboxBody.clientHeight) / 2;
+  });
+  mermaidLbActual.addEventListener('click', () => {
+    lbSetZoom(1);
+  });
+
+  // Mouse wheel zoom (zoom toward cursor)
+  mermaidLightboxBody.addEventListener('wheel', (e) => {
+    if (mermaidLightbox.classList.contains('hidden')) return;
+    e.preventDefault();
+    const oldZoom = lbZoom;
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    lbSetZoom(lbZoom * factor);
+
+    // Adjust scroll to zoom toward cursor position
+    const rect = mermaidLightboxBody.getBoundingClientRect();
+    const cursorX = e.clientX - rect.left + mermaidLightboxBody.scrollLeft;
+    const cursorY = e.clientY - rect.top + mermaidLightboxBody.scrollTop;
+    const ratio = lbZoom / oldZoom;
+    mermaidLightboxBody.scrollLeft = cursorX * ratio - (e.clientX - rect.left);
+    mermaidLightboxBody.scrollTop = cursorY * ratio - (e.clientY - rect.top);
+  }, { passive: false });
+
+  // Drag to pan
+  let lbDragging = false;
+  let lbDragStartX = 0, lbDragStartY = 0;
+  let lbScrollStartX = 0, lbScrollStartY = 0;
+
+  mermaidLightboxBody.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    lbDragging = true;
+    lbDragStartX = e.clientX;
+    lbDragStartY = e.clientY;
+    lbScrollStartX = mermaidLightboxBody.scrollLeft;
+    lbScrollStartY = mermaidLightboxBody.scrollTop;
+    mermaidLightboxBody.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!lbDragging) return;
+    mermaidLightboxBody.scrollLeft = lbScrollStartX - (e.clientX - lbDragStartX);
+    mermaidLightboxBody.scrollTop = lbScrollStartY - (e.clientY - lbDragStartY);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (lbDragging) {
+      lbDragging = false;
+      mermaidLightboxBody.style.cursor = '';
+    }
+  });
+
+  // Close handlers
+  mermaidLightboxClose.addEventListener('click', closeMermaidLightbox);
+  mermaidLightboxOverlay.addEventListener('click', closeMermaidLightbox);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !mermaidLightbox.classList.contains('hidden')) {
+      closeMermaidLightbox();
+    }
+  });
 
   function getFileName(filePath) {
     if (filePath.startsWith('untitled:')) {
