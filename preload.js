@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   parseMarkdown: (content) => ipcRenderer.invoke('parse-markdown', content),
   confirmCloseFile: (fileName) => ipcRenderer.invoke('confirm-close-file', fileName),
   onFileOpened: (callback) => ipcRenderer.on('file-opened', (event, data) => callback(data)),
+  onFileChanged: (callback) => ipcRenderer.on('file-changed', (event, data) => callback(data)),
   onFileSaved: (callback) => ipcRenderer.on('file-saved', () => callback()),
   onTriggerSave: (callback) => ipcRenderer.on('trigger-save', () => callback()),
   onTriggerSaveAs: (callback) => ipcRenderer.on('trigger-save-as', () => callback()),
@@ -27,6 +28,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEditorCopy: (callback) => ipcRenderer.on('editor:copy', (event, data) => callback(data)),
   onEditorPaste: (callback) => ipcRenderer.on('editor:paste', () => callback()),
   onAIAction: (callback) => ipcRenderer.on('ai:action', (event, data) => callback(data))
+});
+
+// Auto-updater API
+contextBridge.exposeInMainWorld('updaterAPI', {
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  getVersion: () => ipcRenderer.invoke('updater:get-version'),
+  onChecking: (callback) => ipcRenderer.on('updater:checking', () => callback()),
+  onUpdateAvailable: (callback) => ipcRenderer.on('updater:available', (event, data) => callback(data)),
+  onUpdateNotAvailable: (callback) => ipcRenderer.on('updater:not-available', (event, data) => callback(data)),
+  onDownloadProgress: (callback) => ipcRenderer.on('updater:progress', (event, data) => callback(data)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('updater:downloaded', (event, data) => callback(data)),
+  onError: (callback) => ipcRenderer.on('updater:error', (event, data) => callback(data))
 });
 
 // Plugin API for plugin system

@@ -6,6 +6,8 @@ const { markedHighlight } = require('marked-highlight');
 const hljs = require('highlight.js');
 const pluginManager = require('./src/main/plugin-manager');
 const { makeAIRequest, makeAIRequestStream } = require('./src/main/ai-service');
+const { initAutoUpdater, checkForUpdatesManual, installDownloadedUpdate } = require('./src/main/auto-updater');
+const fileWatcher = require('./src/main/file-watcher');
 
 let streamIdCounter = 0;
 const activeStreams = new Map();
@@ -35,6 +37,7 @@ marked.setOptions({
 let mainWindow;
 let unsavedFiles = new Map(); // Track unsaved files in main process
 let isQuitting = false;
+let pendingUpdateInstall = false;
 
 function handleClose() {
   if (unsavedFiles.size === 0) {
@@ -103,6 +106,7 @@ function createWindow() {
       if (typeof abort === 'function') abort();
     });
     activeStreams.clear();
+    fileWatcher.closeAll();
   });
 
   const menu = Menu.buildFromTemplate([
@@ -165,6 +169,10 @@ function createWindow() {
           accelerator: 'CmdOrCtrl+,',
           click: () => mainWindow.webContents.send('open-settings')
         },
+        {
+          label: 'Check for Updates...',
+          click: () => checkForUpdatesManual()
+        },
         { type: 'separator' },
         {
           label: 'About',
@@ -173,7 +181,7 @@ function createWindow() {
               type: 'info',
               title: 'About Markdown Editor',
               message: 'Markdown Editor',
-              detail: 'Version 1.0.1\n\nA simple and lightweight Markdown editor.\n\nAuthor: Melvin Vivas\nWebsite: donvitocodes.com',
+              detail: `Version ${app.getVersion()}\n\nA simple and lightweight Markdown editor.\n\nAuthor: Melvin Vivas\nWebsite: donvitocodes.com`,
               buttons: ['OK']
             });
           }
@@ -183,6 +191,14 @@ function createWindow() {
   ]);
 
   Menu.setApplicationMenu(menu);
+}
+
+function emitFileOpened(filePath) {
+  const canonical = fileWatcher.canonicalize(filePath);
+  const content = fs.readFileSync(canonical, 'utf-8');
+  fileWatcher.watch(canonical);
+  mainWindow.webContents.send('file-opened', { filePath: canonical, content });
+  return canonical;
 }
 
 async function openFile() {
@@ -195,9 +211,7 @@ async function openFile() {
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
-    const filePath = result.filePaths[0];
-    const content = fs.readFileSync(filePath, 'utf-8');
-    mainWindow.webContents.send('file-opened', { filePath, content });
+    emitFileOpened(result.filePaths[0]);
   }
 }
 
@@ -224,16 +238,20 @@ ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
         return { success: false, error: 'A file with that name already exists' };
       }
     }
+    fileWatcher.unwatch(oldPath);
     fs.renameSync(oldPath, newPath);
+    const canonicalNew = fileWatcher.canonicalize(newPath);
+    fileWatcher.ignore(canonicalNew);
+    fileWatcher.watch(canonicalNew);
 
     // Update unsaved files tracking if the old path was tracked
     if (unsavedFiles.has(oldPath)) {
-      const fileName = newPath.split(/[/\\]/).pop();
+      const fileName = canonicalNew.split(/[/\\]/).pop();
       unsavedFiles.delete(oldPath);
-      unsavedFiles.set(newPath, fileName);
+      unsavedFiles.set(canonicalNew, fileName);
     }
 
-    return { success: true, newPath };
+    return { success: true, newPath: canonicalNew };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -245,6 +263,7 @@ ipcMain.handle('parse-markdown', (event, content) => {
 
 ipcMain.handle('save-file', (event, filePath, content) => {
   try {
+    fileWatcher.ignore(filePath);
     fs.writeFileSync(filePath, content, 'utf-8');
     mainWindow.webContents.send('file-saved');
     return { success: true, filePath };
@@ -269,7 +288,10 @@ ipcMain.handle('save-file-as', async (event, content, defaultName) => {
 
   try {
     fs.writeFileSync(result.filePath, content, 'utf-8');
-    return { success: true, filePath: result.filePath };
+    const canonical = fileWatcher.canonicalize(result.filePath);
+    fileWatcher.ignore(canonical);
+    fileWatcher.watch(canonical);
+    return { success: true, filePath: canonical };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -277,8 +299,7 @@ ipcMain.handle('save-file-as', async (event, content, defaultName) => {
 
 ipcMain.handle('open-file-path', (event, filePath) => {
   try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    mainWindow.webContents.send('file-opened', { filePath, content });
+    emitFileOpened(filePath);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -310,11 +331,17 @@ ipcMain.on('file-saved-state', (event, filePath) => {
 
 ipcMain.on('file-closed', (event, filePath) => {
   unsavedFiles.delete(filePath);
+  fileWatcher.unwatch(filePath);
 });
 
 ipcMain.on('all-saved-close', () => {
   unsavedFiles.clear();
   isQuitting = true;
+  if (pendingUpdateInstall) {
+    pendingUpdateInstall = false;
+    installDownloadedUpdate();
+    return;
+  }
   mainWindow.close();
 });
 
@@ -484,6 +511,49 @@ app.whenReady().then(() => {
   // Initialize plugin manager
   pluginManager.initialize(__dirname);
   createWindow();
+
+  fileWatcher.setOnChange((filePath, content) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('file-changed', { filePath, content });
+    }
+  });
+
+  // Initialize auto-updater (checks GitHub releases for new versions)
+  initAutoUpdater(mainWindow, {
+    beforeInstall: () => {
+      if (unsavedFiles.size === 0) {
+        isQuitting = true;
+        return { proceed: true };
+      }
+
+      const fileNames = Array.from(unsavedFiles.values()).join(', ');
+      const result = dialog.showMessageBoxSync(mainWindow, {
+        type: 'warning',
+        buttons: ['Save', "Don't Save", 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Unsaved Changes',
+        message: `You have unsaved changes in: ${fileNames}`,
+        detail: 'Save before restarting to install the update?'
+      });
+
+      if (result === 2) {
+        return { proceed: false, cancelled: true };
+      }
+
+      if (result === 1) {
+        unsavedFiles.clear();
+        isQuitting = true;
+        return { proceed: true };
+      }
+
+      // Save first; all-saved-close will call installDownloadedUpdate()
+      pendingUpdateInstall = true;
+      isQuitting = true;
+      mainWindow.webContents.send('save-all-and-close');
+      return { proceed: false, saving: true };
+    }
+  });
 });
 
 // Handle app quit with unsaved changes check

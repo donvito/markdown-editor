@@ -36,6 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let openFiles = new Map(); // Map of filePath -> { content, unsaved, cursorPos, scrollPos }
   let activeFilePath = null;
   let untitledCounter = 1;
+  const VIEW_MODES = ['edit', 'preview', 'split'];
+
+  function getStoredViewMode() {
+    const stored = localStorage.getItem('defaultViewMode');
+    return VIEW_MODES.includes(stored) ? stored : 'preview';
+  }
+
+  let defaultViewMode = getStoredViewMode();
   let isDarkMode = localStorage.getItem('darkMode') === 'true';
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -1312,7 +1320,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   editor.addEventListener('focus', updateCursorPosition);
 
-  function setViewMode(mode) {
+  function setViewMode(mode, persist = true) {
+    if (!VIEW_MODES.includes(mode)) {
+      mode = 'preview';
+    }
+
     // Remove active class from all toggle buttons
     editBtn.classList.remove('active');
     previewBtn.classList.remove('active');
@@ -1337,6 +1349,12 @@ document.addEventListener('DOMContentLoaded', () => {
         previewPane.style.display = 'flex';
         editorContainer.classList.add('split-view');
         break;
+    }
+
+    if (persist) {
+      defaultViewMode = mode;
+      localStorage.setItem('defaultViewMode', mode);
+      document.dispatchEvent(new CustomEvent('view-mode-changed', { detail: { mode } }));
     }
   }
 
@@ -1701,20 +1719,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await window.electronAPI.renameFile(filePath, newPath);
 
       if (result.success) {
+        const destPath = result.newPath || newPath;
         // Update the open file entry
         const fileData = openFiles.get(filePath);
         if (fileData) {
-          // Notify main process about the path change
-          window.electronAPI.notifyFileClosed(filePath);
+          // Main already moved the watch and unsaved tracking to destPath.
+          // Do not notifyFileClosed(old) — on Windows a case-only rename
+          // would unwatch the new path (same path, different casing).
           if (fileData.unsaved) {
-            window.electronAPI.notifyFileUnsaved(newPath, newName);
+            window.electronAPI.notifyFileUnsaved(destPath, newName);
           }
 
           openFiles.delete(filePath);
-          openFiles.set(newPath, fileData);
+          openFiles.set(destPath, fileData);
 
           if (activeFilePath === filePath) {
-            activeFilePath = newPath;
+            activeFilePath = destPath;
           }
 
           renderFileList();
@@ -1778,7 +1798,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Switch to a different file
+  function normalizePathKey(filePath) {
+    return String(filePath || '').replace(/\\/g, '/').toLowerCase();
+  }
+
+  function findOpenPath(filePath) {
+    if (!filePath) return null;
+    if (openFiles.has(filePath)) return filePath;
+    const target = normalizePathKey(filePath);
+    for (const key of openFiles.keys()) {
+      if (normalizePathKey(key) === target) return key;
+    }
+    return null;
+  }
+
+  function applyDiskContent(filePath, content) {
+    const file = openFiles.get(filePath);
+    if (!file || file.unsaved || isUntitledFile(filePath)) return false;
+    if (file.content === content) return false;
+
+    const isActive = filePath === activeFilePath;
+    let cursor = file.cursorPos || 0;
+    let scroll = file.scrollPos || 0;
+    if (isActive) {
+      cursor = editor.selectionStart;
+      scroll = editor.scrollTop;
+    }
+
+    file.content = content;
+    file.cursorPos = Math.min(cursor, content.length);
+    file.scrollPos = scroll;
+
+    if (isActive) {
+      editor.value = content;
+      editor.selectionStart = editor.selectionEnd = file.cursorPos;
+      editor.scrollTop = scroll;
+      updatePreview();
+      updateLineNumbers();
+      updateCursorPosition();
+      updateWordCount();
+      renderOutline();
+      syncLineNumbersScroll();
+    }
+
+    return true;
+  }
+
   function switchToFile(filePath) {
     if (!openFiles.has(filePath)) return;
 
@@ -1888,9 +1953,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openFile(filePath, content) {
-    // Check if file is already open
-    if (openFiles.has(filePath)) {
-      switchToFile(filePath);
+    const existingPath = findOpenPath(filePath);
+    if (existingPath) {
+      applyDiskContent(existingPath, content);
+      switchToFile(existingPath);
       return;
     }
 
@@ -1915,11 +1981,14 @@ document.addEventListener('DOMContentLoaded', () => {
     fileNameSpan.textContent = fileName;
     document.title = `${fileName} - Markdown Editor`;
 
+    const isFirstFile = openFiles.size === 1;
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
     formattingToolbarInline.style.display = 'flex';
-    setViewMode('split');
+    if (isFirstFile) {
+      setViewMode(defaultViewMode, false);
+    }
 
     editor.value = content;
     editor.selectionStart = 0;
@@ -1964,11 +2033,14 @@ document.addEventListener('DOMContentLoaded', () => {
     fileNameSpan.textContent = fileName + ' (unsaved)';
     document.title = `${fileName} - Markdown Editor`;
 
+    const isFirstFile = openFiles.size === 1;
     welcomeDiv.style.display = 'none';
     editorContainer.style.display = 'flex';
     toggleGroup.style.display = 'flex';
     formattingToolbarInline.style.display = 'flex';
-    setViewMode('split');
+    if (isFirstFile) {
+      setViewMode(defaultViewMode, false);
+    }
 
     editor.value = '';
     editor.selectionStart = 0;
@@ -2041,10 +2113,17 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLineNumbersScroll(); // Sync scroll position
   });
 
-  // Toggle buttons
+  // Toggle buttons — also remember as the default for next session
   editBtn.addEventListener('click', () => setViewMode('edit'));
   previewBtn.addEventListener('click', () => setViewMode('preview'));
   splitBtn.addEventListener('click', () => setViewMode('split'));
+
+  document.addEventListener('set-default-view-mode', (e) => {
+    const mode = e.detail && e.detail.mode;
+    if (VIEW_MODES.includes(mode)) {
+      setViewMode(mode, true);
+    }
+  });
 
   // New button
   const newBtn = document.getElementById('new-btn');
@@ -2129,6 +2208,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // IPC handlers
   window.electronAPI.onFileOpened((data) => {
     openFile(data.filePath, data.content);
+  });
+
+  window.electronAPI.onFileChanged((data) => {
+    const existingPath = findOpenPath(data.filePath);
+    if (!existingPath) return;
+    applyDiskContent(existingPath, data.content);
   });
 
   window.electronAPI.onFileSaved(() => {

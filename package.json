@@ -1,11 +1,15 @@
 {
   "name": "markdown-editor",
   "productName": "Markdown Editor",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "A simple Markdown editor for Mac, Windows and Linux",
   "author": {
     "name": "Melvin Vivas",
     "email": "donvitocodes@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/donvito/markdown-editor.git"
   },
   "main": "main.js",
   "scripts": {
@@ -19,7 +23,14 @@
   "build": {
     "appId": "com.donvitocodes.markdown-editor.app",
     "productName": "Markdown Editor",
-    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "donvito",
+        "repo": "markdown-editor"
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -38,7 +49,10 @@
       "icon": "icon.png"
     },
     "mac": {
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "icon.png",
       "category": "public.app-category.productivity"
     },
@@ -53,6 +67,7 @@
   },
   "dependencies": {
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.7.3",
     "highlight.js": "^11.9.0",
     "marked": "^12.0.0",
     "marked-highlight": "^2.1.0",

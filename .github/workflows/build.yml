@@ -45,10 +45,10 @@ jobs:
           name: dist-${{ matrix.os }}
           path: |
             dist/*.dmg
+            dist/*.zip
             dist/*.exe
             dist/*.AppImage
             dist/*.deb
-            dist/*.zip
             dist/*.blockmap
             dist/latest*.yml
 
@@ -63,11 +63,29 @@ jobs:
         with:
           path: artifacts
 
+      # electron-updater reads these files from the published GitHub release.
+      # Filenames in latest-*.yml must match the uploaded assets exactly.
+      - name: Verify update metadata
+        run: |
+          echo "Release files:"
+          find artifacts -type f | sort
+          missing=0
+          for f in latest.yml latest-mac.yml latest-linux.yml; do
+            if [ -z "$(find artifacts -name "$f" -print -quit)" ]; then
+              echo "::error::Missing $f — auto-update for that platform will fail"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      # Draft until assets look right. Publish the draft or clients will
+      # never see the update (electron-updater ignores draft releases).
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/**/*
           draft: true
           generate_release_notes: true
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
