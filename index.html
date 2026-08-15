@@ -40,6 +40,14 @@
           </button>
           <button id="open-btn" class="toolbar-icon-btn" title="Open File (Ctrl+O)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="8" y1="13" x2="16" y2="13"/>
+              <line x1="8" y1="17" x2="13" y2="17"/>
+            </svg>
+          </button>
+          <button id="open-folder-toolbar-btn" class="toolbar-icon-btn" title="Open Folder (Ctrl+Shift+O)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
           </button>
@@ -128,6 +136,22 @@
           <button id="toggle-sidebar" class="sidebar-toggle" title="Collapse sidebar">◀</button>
         </div>
         <div class="sidebar-content">
+          <div class="sidebar-section" id="folder-section">
+            <div class="sidebar-section-header" id="folder-header">
+              <svg class="section-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+              <span class="sidebar-section-title" id="folder-section-title">Folder</span>
+              <div class="sidebar-section-actions">
+                <button id="open-folder-btn" class="sidebar-action-btn" title="Open Folder">Open</button>
+                <button id="close-folder-btn" class="sidebar-action-btn hidden" title="Close Folder">&times;</button>
+              </div>
+            </div>
+            <div class="sidebar-section-content">
+              <div id="folder-empty" class="folder-empty">Open a folder to list markdown files</div>
+              <ul id="folder-file-list" class="file-list"></ul>
+            </div>
+          </div>
           <div class="sidebar-section" id="open-files-section">
             <div class="sidebar-section-header" id="open-files-header">
               <svg class="section-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -146,7 +170,7 @@
       <div class="main-content">
         <div id="welcome" class="welcome">
           <p>Welcome to Markdown Editor</p>
-          <p>Press <kbd>Ctrl+O</kbd> or click "Open" to load a markdown file</p>
+          <p>Press <kbd>Ctrl+O</kbd> to open a file, or <kbd>Ctrl+Shift+O</kbd> to open a folder</p>
         </div>
         <div id="editor-container" class="editor-container" style="display: none;">
           <div id="tabs-bar" class="tabs-bar"></div>
