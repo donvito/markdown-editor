@@ -8,6 +8,7 @@ const pluginManager = require('./src/main/plugin-manager');
 const { makeAIRequest, makeAIRequestStream } = require('./src/main/ai-service');
 const { initAutoUpdater, checkForUpdatesManual, installDownloadedUpdate } = require('./src/main/auto-updater');
 const fileWatcher = require('./src/main/file-watcher');
+const { listMarkdownFiles } = require('./src/main/folder-scanner');
 
 let streamIdCounter = 0;
 const activeStreams = new Map();
@@ -124,6 +125,11 @@ function createWindow() {
           click: openFile
         },
         {
+          label: 'Open Folder...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: openFolder
+        },
+        {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: () => mainWindow.webContents.send('trigger-save')
@@ -193,6 +199,36 @@ function createWindow() {
   Menu.setApplicationMenu(menu);
 }
 
+function emitFolderOpened(folderPath) {
+  const canonical = path.resolve(folderPath);
+  const files = listMarkdownFiles(canonical);
+  const payload = {
+    folderPath: canonical,
+    folderName: path.basename(canonical),
+    files
+  };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('folder-opened', payload);
+  }
+  return { success: true, ...payload };
+}
+
+async function openFolder() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { success: false, canceled: true };
+  }
+
+  try {
+    return emitFolderOpened(result.filePaths[0]);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 function emitFileOpened(filePath) {
   const canonical = fileWatcher.canonicalize(filePath);
   const content = fs.readFileSync(canonical, 'utf-8');
@@ -217,6 +253,29 @@ async function openFile() {
 
 // IPC Handlers
 ipcMain.handle('open-file-dialog', openFile);
+ipcMain.handle('open-folder-dialog', openFolder);
+
+ipcMain.handle('open-folder-path', (event, folderPath) => {
+  try {
+    if (!folderPath || !fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+      return { success: false, error: 'Not a folder' };
+    }
+    return emitFolderOpened(folderPath);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('list-folder-markdown', (event, folderPath) => {
+  try {
+    if (!folderPath || !fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+      return { success: false, error: 'Folder not found' };
+    }
+    return emitFolderOpened(folderPath);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle('open-external', (event, url) => {
   shell.openExternal(url);

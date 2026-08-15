@@ -31,6 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const currentFilePathSpan = document.getElementById('current-file-path');
   const openFilesSection = document.getElementById('open-files-section');
   const openFilesHeader = document.getElementById('open-files-header');
+  const folderSection = document.getElementById('folder-section');
+  const folderHeader = document.getElementById('folder-header');
+  const folderSectionTitle = document.getElementById('folder-section-title');
+  const folderFileList = document.getElementById('folder-file-list');
+  const folderEmpty = document.getElementById('folder-empty');
+  const openFolderBtn = document.getElementById('open-folder-btn');
+  const closeFolderBtn = document.getElementById('close-folder-btn');
+  const openFolderToolbarBtn = document.getElementById('open-folder-toolbar-btn');
 
   // Multi-file state management
   let openFiles = new Map(); // Map of filePath -> { content, unsaved, cursorPos, scrollPos }
@@ -50,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
   let rightSidebarHidden = localStorage.getItem('rightSidebarHidden') === 'true';
   let openFilesSectionCollapsed = localStorage.getItem('openFilesSectionCollapsed') === 'true';
+  let folderSectionCollapsed = localStorage.getItem('folderSectionCollapsed') === 'true';
+  let currentFolder = null; // { folderPath, folderName, files }
   let outlineCollapsedItems = JSON.parse(localStorage.getItem('outlineCollapsedItems') || '{}');
   let sidebarWidth = parseInt(localStorage.getItem('sidebarWidth') || '200', 10);
   let rightSidebarWidth = parseInt(localStorage.getItem('rightSidebarWidth') || '220', 10);
@@ -230,6 +240,157 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initOpenFilesSection();
   openFilesHeader.addEventListener('click', toggleOpenFilesSection);
+
+  function initFolderSection() {
+    if (folderSectionCollapsed) {
+      folderSection.classList.add('collapsed');
+    } else {
+      folderSection.classList.remove('collapsed');
+    }
+  }
+
+  function toggleFolderSection() {
+    folderSectionCollapsed = !folderSectionCollapsed;
+    localStorage.setItem('folderSectionCollapsed', folderSectionCollapsed);
+    initFolderSection();
+  }
+
+  initFolderSection();
+  folderHeader.addEventListener('click', toggleFolderSection);
+
+  function getRelativeParent(relativePath) {
+    const normalized = String(relativePath || '').replace(/\\/g, '/');
+    const idx = normalized.lastIndexOf('/');
+    return idx > 0 ? normalized.slice(0, idx) : '';
+  }
+
+  function applyOpenedFolder(data) {
+    if (!data || !data.success && !data.folderPath) {
+      return;
+    }
+    currentFolder = {
+      folderPath: data.folderPath,
+      folderName: data.folderName || data.folderPath.split(/[/\\]/).pop(),
+      files: data.files || []
+    };
+    localStorage.setItem('lastFolderPath', currentFolder.folderPath);
+    folderSectionTitle.textContent = currentFolder.folderName;
+    folderSectionTitle.title = currentFolder.folderPath;
+    updateExplorerLayout();
+    folderEmpty.style.display = currentFolder.files.length === 0 ? 'block' : 'none';
+    folderEmpty.textContent = 'No markdown files found in this folder';
+    renderFolderList();
+  }
+
+  function closeFolder() {
+    currentFolder = null;
+    localStorage.removeItem('lastFolderPath');
+    folderSectionTitle.textContent = 'Folder';
+    folderSectionTitle.title = '';
+    folderFileList.innerHTML = '';
+    folderEmpty.style.display = 'block';
+    folderEmpty.textContent = 'Open a folder to list markdown files';
+    updateExplorerLayout();
+  }
+
+  function updateExplorerLayout() {
+    const folderOpen = !!currentFolder;
+    openFolderBtn.classList.toggle('hidden', folderOpen);
+    closeFolderBtn.classList.toggle('hidden', !folderOpen);
+    openFilesSection.classList.toggle('hidden', folderOpen);
+  }
+
+  function renderFolderList() {
+    folderFileList.innerHTML = '';
+    if (!currentFolder) return;
+
+    currentFolder.files.forEach((file) => {
+      const li = document.createElement('li');
+      const openKey = findOpenPath(file.path);
+      if (openKey && openKey === activeFilePath) {
+        li.classList.add('active');
+      }
+      li.dataset.path = file.path;
+      li.title = file.path;
+      const parent = getRelativeParent(file.relativePath);
+      const unsaved = openKey && openFiles.get(openKey)?.unsaved;
+      li.innerHTML = `
+        <span class="file-icon">📄</span>
+        <div class="file-info">
+          <span class="file-name">${escapeHtml(file.name)}</span>
+          ${parent ? `<span class="file-path">${escapeHtml(parent)}</span>` : ''}
+        </div>
+        ${unsaved ? '<span class="unsaved-dot"></span>' : ''}
+      `;
+      li.addEventListener('click', () => {
+        window.electronAPI.openFilePath(file.path);
+      });
+      li.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showFileContextMenu(file.path, e.clientX, e.clientY);
+      });
+      folderFileList.appendChild(li);
+    });
+  }
+
+  function highlightFolderFiles() {
+    if (!folderFileList) return;
+    folderFileList.querySelectorAll('li').forEach((li) => {
+      const openKey = findOpenPath(li.dataset.path);
+      li.classList.toggle('active', !!(openKey && openKey === activeFilePath));
+      const unsaved = !!(openKey && openFiles.get(openKey)?.unsaved);
+      let dot = li.querySelector('.unsaved-dot');
+      if (unsaved && !dot) {
+        dot = document.createElement('span');
+        dot.className = 'unsaved-dot';
+        li.appendChild(dot);
+      } else if (!unsaved && dot) {
+        dot.remove();
+      }
+    });
+  }
+
+  function requestOpenFolder() {
+    window.electronAPI.openFolder();
+  }
+
+  openFolderBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    requestOpenFolder();
+  });
+  closeFolderBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeFolder();
+  });
+  if (openFolderToolbarBtn) {
+    openFolderToolbarBtn.addEventListener('click', requestOpenFolder);
+  }
+
+  let restoringFolder = false;
+
+  window.electronAPI.onFolderOpened((data) => {
+    applyOpenedFolder(data);
+    if (!restoringFolder) {
+      if (sidebarCollapsed) {
+        toggleSidebarBtn.click();
+      }
+      if (folderSectionCollapsed) {
+        toggleFolderSection();
+      }
+    }
+    restoringFolder = false;
+  });
+
+  const lastFolderPath = localStorage.getItem('lastFolderPath');
+  if (lastFolderPath) {
+    restoringFolder = true;
+    window.electronAPI.listFolderMarkdown(lastFolderPath).then((result) => {
+      if (!result || !result.success) {
+        restoringFolder = false;
+        localStorage.removeItem('lastFolderPath');
+      }
+    });
+  }
 
   // Right Sidebar (Outline) functionality
   function initRightSidebar() {
@@ -1623,6 +1784,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       fileList.appendChild(li);
     });
+    highlightFolderFiles();
   }
 
   // File context menu
@@ -1742,6 +1904,10 @@ document.addEventListener('DOMContentLoaded', () => {
           updateCurrentFilePath();
           document.title = `${newName} - Markdown Editor`;
           fileNameSpan.textContent = fileData.unsaved ? `${newName} (unsaved)` : newName;
+
+          if (currentFolder) {
+            window.electronAPI.listFolderMarkdown(currentFolder.folderPath);
+          }
         }
       } else {
         alert('Failed to rename: ' + result.error);
@@ -2745,10 +2911,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Support dropping multiple files
       Array.from(files).forEach(file => {
+        const filePath = window.electronAPI.getPathForFile(file);
         const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
         if (validExtensions.includes(ext)) {
-          const filePath = window.electronAPI.getPathForFile(file);
           window.electronAPI.openFilePath(filePath);
+        } else if (filePath) {
+          window.electronAPI.openFolderPath(filePath);
         }
       });
     }
