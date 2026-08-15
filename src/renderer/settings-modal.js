@@ -52,10 +52,31 @@ class SettingsModal {
           </div>
           <div class="modal-body">
             <nav class="settings-nav">
-              <button class="settings-tab active" data-tab="plugins">Plugins</button>
+              <button class="settings-tab active" data-tab="general">General</button>
+              <button class="settings-tab" data-tab="plugins">Plugins</button>
             </nav>
             <div class="settings-content">
-              <div id="settings-plugins" class="settings-panel active">
+              <div id="settings-general" class="settings-panel active">
+                <div class="setting-group">
+                  <label class="setting-label">Default view</label>
+                  <p class="setting-description">Shown when you open or create a file. You can also change this from the Edit / Split / Preview buttons.</p>
+                  <div class="view-mode-options" role="radiogroup" aria-label="Default view">
+                    <label class="view-mode-option">
+                      <input type="radio" name="default-view-mode" value="edit">
+                      <span>Edit</span>
+                    </label>
+                    <label class="view-mode-option">
+                      <input type="radio" name="default-view-mode" value="preview">
+                      <span>Preview</span>
+                    </label>
+                    <label class="view-mode-option">
+                      <input type="radio" name="default-view-mode" value="split">
+                      <span>Split</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div id="settings-plugins" class="settings-panel">
                 <div class="plugins-list"></div>
               </div>
             </div>
@@ -70,9 +91,44 @@ class SettingsModal {
     // Event listeners
     this.modal.querySelector('.modal-close').addEventListener('click', () => this.hide());
     this.modal.querySelector('.modal-overlay').addEventListener('click', () => this.hide());
+
+    this.modal.querySelectorAll('.settings-tab').forEach((tab) => {
+      tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+    });
+
+    this.modal.querySelectorAll('input[name="default-view-mode"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        document.dispatchEvent(new CustomEvent('set-default-view-mode', {
+          detail: { mode: input.value }
+        }));
+      });
+    });
+
+    document.addEventListener('view-mode-changed', (e) => {
+      this.syncViewModeRadios(e.detail && e.detail.mode);
+    });
+  }
+
+  switchTab(tabId) {
+    this.modal.querySelectorAll('.settings-tab').forEach((tab) => {
+      tab.classList.toggle('active', tab.dataset.tab === tabId);
+    });
+    this.modal.querySelectorAll('.settings-panel').forEach((panel) => {
+      panel.classList.toggle('active', panel.id === `settings-${tabId}`);
+    });
+  }
+
+  syncViewModeRadios(mode) {
+    const valid = ['edit', 'preview', 'split'].includes(mode) ? mode : 'preview';
+    this.modal.querySelectorAll('input[name="default-view-mode"]').forEach((input) => {
+      input.checked = input.value === valid;
+    });
   }
 
   async show() {
+    const stored = localStorage.getItem('defaultViewMode');
+    this.syncViewModeRadios(stored || 'preview');
     await this.loadPlugins();
     this.modal.classList.remove('hidden');
   }
