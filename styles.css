@@ -175,32 +175,83 @@ header h1 {
 
 .toggle-group {
   display: flex;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  overflow: hidden;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Mutually exclusive view modes live on a single track */
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background-color: #f0f0f0;
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
 }
 
 .toggle-btn {
-  padding: 6px 14px !important;
-  background-color: #f5f5f5 !important;
-  color: #555 !important;
+  padding: 5px 12px !important;
+  background-color: transparent !important;
+  color: #5a5a5a !important;
   border: none !important;
-  border-radius: 0 !important;
-  border-right: 1px solid #ddd !important;
-  font-size: 13px;
-}
-
-.toggle-btn:last-child {
-  border-right: none !important;
+  border-radius: 6px !important;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .toggle-btn:hover {
-  background-color: #e8e8e8 !important;
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  color: #222 !important;
 }
 
-.toggle-btn.active {
-  background-color: #333 !important;
-  color: white !important;
+.toggle-btn:focus-visible {
+  outline: 2px solid #4a90d9;
+  outline-offset: 1px;
+}
+
+.segmented .toggle-btn.active {
+  background-color: #fff !important;
+  color: #1a1a1a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.segmented .toggle-btn.active:hover {
+  background-color: #fff !important;
+}
+
+/* Wide is an independent toggle, not a fourth view mode */
+.wide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px !important;
+  background-color: #f0f0f0 !important;
+  border: 1px solid #e3e3e3 !important;
+  border-radius: 8px !important;
+}
+
+.wide-btn svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0.7;
+}
+
+.wide-btn:hover {
+  background-color: #e6e6e6 !important;
+}
+
+.wide-btn.active {
+  background-color: #e8f0fb !important;
+  border-color: #b9d3f2 !important;
+  color: #1c4e8a !important;
+}
+
+.wide-btn.active svg {
+  opacity: 1;
 }
 
 /* Floating Formatting Toolbar */
@@ -708,43 +759,79 @@ main {
   gap: 8px;
 }
 
-.right-sidebar-tabs {
+/* Outline and Chat are stacked accordion sections — both visible at once,
+   so neither is hidden behind a tab. */
+.sidebar-section {
   display: flex;
-  gap: 2px;
-  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.right-sidebar-tab {
-  padding: 6px 12px;
-  background: transparent;
+/* Chat takes the leftover height; Outline sizes to its content (capped). */
+.sidebar-section-grow {
+  flex: 1 1 auto;
+  border-bottom: none;
+}
+
+/* A collapsed chat section must not still claim the leftover space */
+.sidebar-section-grow.collapsed {
+  flex: 0 0 auto;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  background-color: #ededed;
   border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #666;
   cursor: pointer;
+  text-align: left;
   transition: background-color 0.15s, color 0.15s;
 }
 
-.right-sidebar-tab:hover {
-  background-color: #ddd;
+.sidebar-section-header:hover {
+  background-color: #e3e3e3;
   color: #333;
 }
 
-.right-sidebar-tab.active {
-  background-color: #fff;
-  color: #333;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.section-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
 }
 
-.right-sidebar-panel {
-  display: none;
-  height: 100%;
-  flex-direction: column;
+.sidebar-section-header[aria-expanded="false"] .section-chevron {
+  transform: rotate(-90deg);
 }
 
-.right-sidebar-panel.active {
+.sidebar-section-body {
   display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-section-header[aria-expanded="false"] + .sidebar-section-body {
+  display: none;
+}
+
+/* Outline holds a steady share of the panel so the chat starts at a
+   predictable height, and is capped so a long document cannot crowd it out. */
+#outline-section .sidebar-section-body {
+  min-height: 27vh;
+  max-height: 32vh;
+  overflow-y: auto;
+}
+
+#chat-section .sidebar-section-body {
+  flex: 1 1 auto;
 }
 
 .right-sidebar-title {
@@ -772,7 +859,9 @@ main {
 
 .right-sidebar-content {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   min-height: 0;
 }
 
@@ -1351,12 +1440,22 @@ body.resizing * {
   padding: 40px;
   background-color: #fff;
   flex: 1;
+  box-sizing: border-box;
+}
+
+.editor-container.wide-view #content {
+  width: 100%;
+  max-width: none;
 }
 
 .split-view #content {
   margin: 20px;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.editor-container.wide-view.split-view #content {
+  width: calc(100% - 40px);
 }
 
 /* Markdown content styles */
@@ -1750,23 +1849,44 @@ body.dark .toolbar-icon-btn.active {
   color: #fff;
 }
 
-body.dark .toggle-group {
-  border-color: #444;
+body.dark .segmented {
+  background-color: #2a2a2a;
+  border-color: #3a3a3a;
 }
 
 body.dark .toggle-btn {
-  background-color: #333 !important;
-  color: #ccc !important;
-  border-right-color: #444 !important;
+  background-color: transparent !important;
+  color: #a8a8a8 !important;
 }
 
 body.dark .toggle-btn:hover {
-  background-color: #444 !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ececec !important;
 }
 
-body.dark .toggle-btn.active {
-  background-color: #666 !important;
-  color: white !important;
+body.dark .segmented .toggle-btn.active {
+  background-color: #4d4d4d !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+body.dark .segmented .toggle-btn.active:hover {
+  background-color: #575757 !important;
+}
+
+body.dark .wide-btn {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+}
+
+body.dark .wide-btn:hover {
+  background-color: #383838 !important;
+}
+
+body.dark .wide-btn.active {
+  background-color: #243b55 !important;
+  border-color: #37587d !important;
+  color: #9ec9ff !important;
 }
 
 body.dark .current-file-path {
@@ -2102,10 +2222,33 @@ body.dark .outline-chevron:hover {
 /* Chat Panel Styles */
 .chat-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   padding: 6px 8px;
   border-bottom: 1px solid #e0e0e0;
   background-color: #f5f5f5;
+}
+
+/* AI configuration is otherwise buried in Settings > AI & Plugins */
+.chat-settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid #d8d8d8;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chat-settings-btn:hover {
+  background-color: #e8e8e8;
+  border-color: #c4c4c4;
+  color: #222;
 }
 
 .chat-clear-btn {
@@ -2141,6 +2284,79 @@ body.dark .outline-chevron:hover {
   font-size: 13px;
   text-align: center;
   padding: 20px;
+}
+
+.chat-welcome-hint {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: #999;
+  line-height: 1.8;
+}
+
+.chat-welcome-hint kbd {
+  padding: 1px 5px;
+  border: 1px solid #ddd;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fafafa;
+  font-family: inherit;
+  font-size: 10.5px;
+  color: #666;
+}
+
+.chat-inline-link {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: #0066cc;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.chat-inline-link:hover {
+  color: #0052a3;
+}
+
+/* The setup notice already carries the call to action */
+.right-sidebar-panel.needs-setup .chat-welcome-hint {
+  display: none;
+}
+
+.chat-setup-notice {
+  padding: 14px;
+  border: 1px solid #ffe0a3;
+  border-radius: 8px;
+  background-color: #fff8e8;
+  text-align: center;
+}
+
+.chat-setup-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a5a00;
+}
+
+.chat-setup-body {
+  margin: 4px 0 10px;
+  font-size: 11.5px;
+  color: #9a7333;
+}
+
+.chat-setup-btn {
+  padding: 6px 14px;
+  background-color: #0066cc;
+  border: none;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-setup-btn:hover {
+  background-color: #0052a3;
 }
 
 .chat-message {
@@ -2351,17 +2567,17 @@ body.dark .outline-chevron:hover {
 }
 
 /* Dark mode chat styles */
-body.dark .right-sidebar-tab {
+body.dark .sidebar-section {
+  border-bottom-color: #333;
+}
+
+body.dark .sidebar-section-header {
+  background-color: #262626;
   color: #999;
 }
 
-body.dark .right-sidebar-tab:hover {
-  background-color: #333;
-  color: #fff;
-}
-
-body.dark .right-sidebar-tab.active {
-  background-color: #333;
+body.dark .sidebar-section-header:hover {
+  background-color: #303030;
   color: #fff;
 }
 
@@ -2439,6 +2655,44 @@ body.dark .chat-clear-btn {
 body.dark .chat-clear-btn:hover {
   background-color: #333;
   color: #fff;
+}
+
+body.dark .chat-settings-btn {
+  border-color: #3d3d3d;
+  color: #aaa;
+}
+
+body.dark .chat-settings-btn:hover {
+  background-color: #333;
+  border-color: #4d4d4d;
+  color: #fff;
+}
+
+body.dark .chat-welcome-hint {
+  color: #777;
+}
+
+body.dark .chat-welcome-hint kbd {
+  background: #2a2a2a;
+  border-color: #3d3d3d;
+  color: #aaa;
+}
+
+body.dark .chat-inline-link {
+  color: #4da3ff;
+}
+
+body.dark .chat-setup-notice {
+  background-color: #2e2717;
+  border-color: #4d4326;
+}
+
+body.dark .chat-setup-title {
+  color: #f0c674;
+}
+
+body.dark .chat-setup-body {
+  color: #b8a173;
 }
 
 /* Dark mode tabs */

@@ -31,7 +31,7 @@ class SettingsModal {
     this.createModal();
 
     // Listen for open settings event
-    document.addEventListener('open-settings', () => this.show());
+    document.addEventListener('open-settings', (e) => this.show(e.detail || {}));
 
     // Close on escape key
     document.addEventListener('keydown', (e) => {
@@ -53,7 +53,7 @@ class SettingsModal {
           <div class="modal-body">
             <nav class="settings-nav">
               <button class="settings-tab active" data-tab="general">General</button>
-              <button class="settings-tab" data-tab="plugins">Plugins</button>
+              <button class="settings-tab" data-tab="plugins">AI &amp; Plugins</button>
             </nav>
             <div class="settings-content">
               <div id="settings-general" class="settings-panel active">
@@ -126,15 +126,31 @@ class SettingsModal {
     });
   }
 
-  async show() {
+  async show({ tab, pluginId } = {}) {
     const stored = localStorage.getItem('defaultViewMode');
     this.syncViewModeRadios(stored || 'preview');
     await this.loadPlugins();
+
+    if (tab) {
+      this.switchTab(tab);
+    }
+
+    // Opened from a specific feature (e.g. the chat panel): expand that
+    // plugin's settings so the fields are visible without a second click.
+    if (pluginId) {
+      const card = this.modal.querySelector(`.plugin-card[data-plugin-id="${pluginId}"]`);
+      if (card) {
+        card.querySelector('.plugin-settings').classList.add('expanded');
+        card.scrollIntoView({ block: 'nearest' });
+      }
+    }
+
     this.modal.classList.remove('hidden');
   }
 
   hide() {
     this.modal.classList.add('hidden');
+    document.dispatchEvent(new CustomEvent('settings-closed'));
   }
 
   async loadPlugins() {

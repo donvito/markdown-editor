@@ -103,9 +103,17 @@
       </div>
       <div class="header-center">
         <div class="toggle-group" id="toggle-group" style="display: none;">
-          <button id="edit-btn" class="toggle-btn">Edit</button>
-          <button id="split-btn" class="toggle-btn">Split</button>
-          <button id="preview-btn" class="toggle-btn active">Preview</button>
+          <div class="segmented" role="group" aria-label="View mode">
+            <button id="preview-btn" class="toggle-btn active" title="Preview only (Ctrl/Cmd+1)">Preview</button>
+            <button id="edit-btn" class="toggle-btn" title="Editor only (Ctrl/Cmd+2)">Edit</button>
+            <button id="split-btn" class="toggle-btn" title="Editor and preview side by side (Ctrl/Cmd+3)">Split</button>
+          </div>
+          <button id="wide-view-btn" class="toggle-btn wide-btn" title="Use the full available width for Markdown (Ctrl/Cmd+Shift+W)" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>
+            </svg>
+            <span>Wide</span>
+          </button>
         </div>
       </div>
       <div class="header-right">
@@ -202,22 +210,37 @@
       <div id="right-sidebar-resize-handle" class="resize-handle resize-handle-right"></div>
       <aside id="right-sidebar" class="right-sidebar">
         <div class="right-sidebar-header">
-          <div class="right-sidebar-tabs">
-            <button id="tab-outline" class="right-sidebar-tab active" title="Document Outline">Outline</button>
-            <button id="tab-chat" class="right-sidebar-tab" title="AI Chat">Chat</button>
-          </div>
+          <span class="right-sidebar-title">Assistant</span>
           <button id="toggle-right-sidebar" class="right-sidebar-toggle" title="Close sidebar">×</button>
         </div>
         <div class="right-sidebar-content">
-          <!-- Outline Tab Content -->
-          <div id="outline-panel" class="right-sidebar-panel active">
-            <div id="outline-list" class="outline-list">
-              <div class="outline-empty">No headings found</div>
+          <!-- Outline section -->
+          <section id="outline-section" class="sidebar-section">
+            <button class="sidebar-section-header" id="outline-section-header" aria-expanded="true" aria-controls="outline-panel" title="Document Outline">
+              <svg class="section-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              <span>Outline</span>
+            </button>
+            <div id="outline-panel" class="sidebar-section-body">
+              <div id="outline-list" class="outline-list">
+                <div class="outline-empty">No headings found</div>
+              </div>
             </div>
-          </div>
-          <!-- Chat Tab Content -->
-          <div id="chat-panel" class="right-sidebar-panel">
+          </section>
+          <!-- Chat section -->
+          <section id="chat-section" class="sidebar-section sidebar-section-grow">
+            <button class="sidebar-section-header" id="chat-section-header" aria-expanded="true" aria-controls="chat-panel" title="AI Chat">
+              <svg class="section-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              <span>Chat</span>
+            </button>
+            <div id="chat-panel" class="sidebar-section-body">
             <div class="chat-header">
+              <button id="chat-ai-settings" class="chat-settings-btn" title="Configure the AI provider, model and API key (Ctrl/Cmd+,)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                AI Settings
+              </button>
               <button id="chat-clear" class="chat-clear-btn" title="Clear chat">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"></polyline>
@@ -229,6 +252,7 @@
             <div id="chat-messages" class="chat-messages">
               <div class="chat-welcome">
                 <p>Ask AI anything about your document or get writing help.</p>
+                <p class="chat-welcome-hint">Provider, model and API key live in <button type="button" class="chat-inline-link" data-open-ai-settings>AI Settings</button> <kbd>Ctrl/Cmd</kbd>+<kbd>,</kbd></p>
               </div>
             </div>
             <div class="chat-input-container">
@@ -248,6 +272,7 @@
               </div>
             </div>
           </div>
+          </section>
         </div>
       </aside>
     </main>
