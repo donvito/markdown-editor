@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const editBtn = document.getElementById('edit-btn');
   const previewBtn = document.getElementById('preview-btn');
   const splitBtn = document.getElementById('split-btn');
+  const wideViewBtn = document.getElementById('wide-view-btn');
   const themeToggle = document.getElementById('theme-toggle');
   const lineNumbers = document.getElementById('line-numbers');
   const cursorPosition = document.getElementById('cursor-position');
@@ -52,11 +53,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let defaultViewMode = getStoredViewMode();
+  let currentViewMode = defaultViewMode;
   let isDarkMode = localStorage.getItem('darkMode') === 'true';
   let showLineNumbers = localStorage.getItem('showLineNumbers') !== 'false';
   let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
   let wordWrap = localStorage.getItem('wordWrap') !== 'false'; // Default to true
-  let rightSidebarHidden = localStorage.getItem('rightSidebarHidden') === 'true';
+  // The document outline should be available whenever the app starts. Users
+  // can still hide it for the remainder of the current session.
+  let rightSidebarHidden = false;
+  let wideMarkdownView = localStorage.getItem('wideMarkdownView') !== 'false';
   let openFilesSectionCollapsed = localStorage.getItem('openFilesSectionCollapsed') === 'true';
   let folderSectionCollapsed = localStorage.getItem('folderSectionCollapsed') === 'true';
   let currentFolder = null; // { folderPath, folderName, files }
@@ -255,6 +260,17 @@ document.addEventListener('DOMContentLoaded', () => {
     initFolderSection();
   }
 
+  function revealFolderSection() {
+    if (sidebarCollapsed) {
+      toggleSidebarBtn.click();
+    }
+    if (folderSectionCollapsed) {
+      folderSectionCollapsed = false;
+      localStorage.setItem('folderSectionCollapsed', 'false');
+      initFolderSection();
+    }
+  }
+
   initFolderSection();
   folderHeader.addEventListener('click', toggleFolderSection);
 
@@ -280,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
     folderEmpty.style.display = currentFolder.files.length === 0 ? 'block' : 'none';
     folderEmpty.textContent = 'No markdown files found in this folder';
     renderFolderList();
+    revealFolderSection();
   }
 
   function closeFolder() {
@@ -350,8 +367,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function requestOpenFolder() {
-    window.electronAPI.openFolder();
+  async function requestOpenFolder() {
+    const result = await window.electronAPI.openFolder();
+
+    // The main process also emits folder-opened for menu-triggered opens. Apply
+    // the IPC result here as well so toolbar/sidebar opens do not depend on a
+    // separate event arriving before the folder can be rendered.
+    if (result?.success) {
+      applyOpenedFolder(result);
+    }
   }
 
   openFolderBtn.addEventListener('click', (e) => {
@@ -366,27 +390,14 @@ document.addEventListener('DOMContentLoaded', () => {
     openFolderToolbarBtn.addEventListener('click', requestOpenFolder);
   }
 
-  let restoringFolder = false;
-
   window.electronAPI.onFolderOpened((data) => {
     applyOpenedFolder(data);
-    if (!restoringFolder) {
-      if (sidebarCollapsed) {
-        toggleSidebarBtn.click();
-      }
-      if (folderSectionCollapsed) {
-        toggleFolderSection();
-      }
-    }
-    restoringFolder = false;
   });
 
   const lastFolderPath = localStorage.getItem('lastFolderPath');
   if (lastFolderPath) {
-    restoringFolder = true;
     window.electronAPI.listFolderMarkdown(lastFolderPath).then((result) => {
       if (!result || !result.success) {
-        restoringFolder = false;
         localStorage.removeItem('lastFolderPath');
       }
     });
@@ -411,13 +422,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function toggleRightSidebar() {
     rightSidebarHidden = !rightSidebarHidden;
-    localStorage.setItem('rightSidebarHidden', rightSidebarHidden);
     initRightSidebar();
   }
 
   // Right sidebar tabs
-  const tabOutline = document.getElementById('tab-outline');
-  const tabChat = document.getElementById('tab-chat');
+  const outlineSectionHeader = document.getElementById('outline-section-header');
+  const chatSectionHeader = document.getElementById('chat-section-header');
+  const chatSection = document.getElementById('chat-section');
   const outlinePanel = document.getElementById('outline-panel');
   const chatPanel = document.getElementById('chat-panel');
   const chatMessages = document.getElementById('chat-messages');
@@ -425,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatSendBtn = document.getElementById('chat-send');
   const chatIncludeContext = document.getElementById('chat-include-context');
   const chatClearBtn = document.getElementById('chat-clear');
+  const chatAISettingsBtn = document.getElementById('chat-ai-settings');
 
   let chatHistory = [];
   let isChatStreaming = false;
@@ -452,6 +464,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
   chatClearBtn.addEventListener('click', clearChat);
 
+  function openAISettings() {
+    document.dispatchEvent(new CustomEvent('open-settings', {
+      detail: { tab: 'plugins', pluginId: 'ai-editor' }
+    }));
+  }
+
+  chatAISettingsBtn.addEventListener('click', openAISettings);
+
+  // The welcome/setup copy is re-rendered on clear, so delegate.
+  chatMessages.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open-ai-settings]')) {
+      e.preventDefault();
+      openAISettings();
+    }
+  });
+
+  // Tell the user AI needs configuring before they type a message that fails.
+  async function refreshChatSetupState() {
+    let configured = false;
+    try {
+      const apiKey = await window.pluginAPI.getSetting('ai-editor', 'apiKey');
+      configured = Boolean(apiKey);
+    } catch (err) {
+      configured = false;
+    }
+
+    chatPanel.classList.toggle('needs-setup', !configured);
+    const notice = chatMessages.querySelector('.chat-setup-notice');
+    if (configured) {
+      if (notice) notice.remove();
+      return;
+    }
+    if (notice) return;
+
+    const div = document.createElement('div');
+    div.className = 'chat-setup-notice';
+    div.innerHTML = `
+      <p class="chat-setup-title">AI is not set up yet</p>
+      <p class="chat-setup-body">Add a provider, model and API key to start chatting.</p>
+      <button type="button" class="chat-setup-btn" data-open-ai-settings>Open AI Settings</button>
+    `;
+    chatMessages.prepend(div);
+  }
+
+
   // Open chat links in external browser
   chatMessages.addEventListener('click', (e) => {
     const link = e.target.closest('a');
@@ -461,19 +518,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  function switchToTab(tabName) {
-    tabOutline.classList.toggle('active', tabName === 'outline');
-    tabChat.classList.toggle('active', tabName === 'chat');
-    outlinePanel.classList.toggle('active', tabName === 'outline');
-    chatPanel.classList.toggle('active', tabName === 'chat');
-
-    if (tabName === 'chat') {
-      chatInput.focus();
+  // Outline and Chat are stacked sections, both open by default. Collapsing is
+  // per-section and remembered, so a user who never wants chat can fold it away.
+  function setSectionExpanded(header, expanded, storageKey) {
+    header.setAttribute('aria-expanded', String(expanded));
+    if (header === chatSectionHeader) {
+      chatSection.classList.toggle('collapsed', !expanded);
+    }
+    if (storageKey) {
+      localStorage.setItem(storageKey, String(!expanded));
     }
   }
 
-  tabOutline.addEventListener('click', () => switchToTab('outline'));
-  tabChat.addEventListener('click', () => switchToTab('chat'));
+  function initSidebarSections() {
+    const outlineCollapsed = localStorage.getItem('outlineSectionCollapsed') === 'true';
+    const chatCollapsed = localStorage.getItem('chatSectionCollapsed') === 'true';
+    setSectionExpanded(outlineSectionHeader, !outlineCollapsed);
+    setSectionExpanded(chatSectionHeader, !chatCollapsed);
+    if (!chatCollapsed) {
+      refreshChatSetupState();
+    }
+  }
+
+  outlineSectionHeader.addEventListener('click', () => {
+    const expanded = outlineSectionHeader.getAttribute('aria-expanded') === 'true';
+    setSectionExpanded(outlineSectionHeader, !expanded, 'outlineSectionCollapsed');
+  });
+
+  chatSectionHeader.addEventListener('click', () => {
+    const expanded = chatSectionHeader.getAttribute('aria-expanded') === 'true';
+    setSectionExpanded(chatSectionHeader, !expanded, 'chatSectionCollapsed');
+    if (!expanded) {
+      refreshChatSetupState();
+      chatInput.focus();
+    }
+  });
+
+  initSidebarSections();
 
   // Chat functionality
   function addChatMessage(role, content, isStreaming = false) {
@@ -914,6 +995,21 @@ document.addEventListener('DOMContentLoaded', () => {
   initRightSidebar();
   toggleRightSidebarBtn.addEventListener('click', toggleRightSidebar);
   outlineToggleBtn.addEventListener('click', toggleRightSidebar);
+
+  function initWideMarkdownView() {
+    editorContainer.classList.toggle('wide-view', wideMarkdownView);
+    wideViewBtn.classList.toggle('active', wideMarkdownView);
+    wideViewBtn.setAttribute('aria-pressed', String(wideMarkdownView));
+  }
+
+  function toggleWideMarkdownView() {
+    wideMarkdownView = !wideMarkdownView;
+    localStorage.setItem('wideMarkdownView', String(wideMarkdownView));
+    initWideMarkdownView();
+  }
+
+  initWideMarkdownView();
+  wideViewBtn.addEventListener('click', toggleWideMarkdownView);
 
   // Line numbers functionality
   function initLineNumbers() {
@@ -1485,6 +1581,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!VIEW_MODES.includes(mode)) {
       mode = 'preview';
     }
+
+    currentViewMode = mode;
 
     // Remove active class from all toggle buttons
     editBtn.classList.remove('active');
@@ -2284,6 +2382,11 @@ document.addEventListener('DOMContentLoaded', () => {
   previewBtn.addEventListener('click', () => setViewMode('preview'));
   splitBtn.addEventListener('click', () => setViewMode('split'));
 
+  // Keyboard shortcuts (Cmd/Ctrl+1/2/3 and Cmd/Ctrl+Shift+W) are owned by the
+  // native View menu in main.js, so the accelerator fires exactly once.
+  window.electronAPI.onSetViewMode((mode) => setViewMode(mode));
+  window.electronAPI.onToggleWideView(toggleWideMarkdownView);
+
   document.addEventListener('set-default-view-mode', (e) => {
     const mode = e.detail && e.detail.mode;
     if (VIEW_MODES.includes(mode)) {
@@ -2426,13 +2529,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // AI edits write into the textarea, so they only make sense when the editor
+  // is actually on screen and the plugin is enabled.
+  function canUseAIEditing() {
+    if (currentViewMode !== 'edit' && currentViewMode !== 'split') {
+      return false;
+    }
+    return Boolean(window.pluginHost && window.pluginHost.getPlugin('ai-editor'));
+  }
+
   // Handle right-click context menu
   editor.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     window.electronAPI.showContextMenu({
       selectedText: editor.value.substring(editor.selectionStart, editor.selectionEnd),
       selectionStart: editor.selectionStart,
-      selectionEnd: editor.selectionEnd
+      selectionEnd: editor.selectionEnd,
+      canUseAI: canUseAIEditing()
     });
   });
 
@@ -2498,8 +2611,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
 
-      // Check if the AI plugin is loaded/enabled
-      if (!window.pluginHost || !window.pluginHost.getPlugin('ai-editor')) {
+      // Only while the editor is visible, and only with the plugin enabled
+      if (!canUseAIEditing()) {
+        const reason = (currentViewMode !== 'edit' && currentViewMode !== 'split')
+          ? 'Switch to Edit or Split view to edit with AI'
+          : 'Enable the AI Text Editor plugin in Settings to edit with AI';
+        document.dispatchEvent(new CustomEvent('plugin:notification', {
+          detail: { message: reason, type: 'info' }
+        }));
         return;
       }
 
@@ -2515,6 +2634,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }));
     }
   });
+
+  document.addEventListener('settings-closed', () => refreshChatSetupState());
+  window.electronAPI.onOpenAISettings(() => openAISettings());
 
   // Handle open settings
   window.electronAPI.onOpenSettings(() => {

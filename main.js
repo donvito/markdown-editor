@@ -150,6 +150,28 @@ function createWindow() {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Preview',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => mainWindow.webContents.send('set-view-mode', 'preview')
+        },
+        {
+          label: 'Editor',
+          accelerator: 'CmdOrCtrl+2',
+          click: () => mainWindow.webContents.send('set-view-mode', 'edit')
+        },
+        {
+          label: 'Split',
+          accelerator: 'CmdOrCtrl+3',
+          click: () => mainWindow.webContents.send('set-view-mode', 'split')
+        },
+        { type: 'separator' },
+        {
+          label: 'Wide Markdown Width',
+          accelerator: 'CmdOrCtrl+Shift+W',
+          click: () => mainWindow.webContents.send('toggle-wide-view')
+        },
+        { type: 'separator' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { role: 'resetZoom' }
@@ -174,6 +196,10 @@ function createWindow() {
           label: 'Settings',
           accelerator: 'CmdOrCtrl+,',
           click: () => mainWindow.webContents.send('open-settings')
+        },
+        {
+          label: 'AI Settings...',
+          click: () => mainWindow.webContents.send('open-ai-settings')
         },
         {
           label: 'Check for Updates...',
@@ -494,7 +520,8 @@ ipcMain.handle('plugin:ai-request-abort', (event, streamId) => {
 
 // Context menu handler
 ipcMain.handle('show-context-menu', (event, selectionData) => {
-  const { selectedText, selectionStart, selectionEnd } = selectionData;
+  const { selectedText, selectionStart, selectionEnd, canUseAI = true } = selectionData;
+  const hasSelection = Boolean(selectedText && selectedText.length > 0);
 
   const menuItems = [
     {
@@ -520,16 +547,21 @@ ipcMain.handle('show-context-menu', (event, selectionData) => {
     }
   ];
 
-  // Add AI options only when text is selected
-  if (selectedText && selectedText.length > 0) {
-    menuItems.push({ type: 'separator' });
-    menuItems.push({
-      label: 'Edit with AI...',
-      accelerator: 'CmdOrCtrl+K',
-      click: () => {
-        mainWindow.webContents.send('ai:action', { actionId: 'generate', selectedText, selectionStart, selectionEnd });
-      }
-    });
+  // "Edit with AI" works with or without a selection (no selection generates
+  // from the prompt alone), so it is always listed — greyed out when the AI
+  // plugin is off or the editor is not the visible pane.
+  menuItems.push({ type: 'separator' });
+  menuItems.push({
+    label: 'Edit with AI...',
+    accelerator: 'CmdOrCtrl+K',
+    enabled: canUseAI,
+    click: () => {
+      mainWindow.webContents.send('ai:action', { actionId: 'generate', selectedText, selectionStart, selectionEnd });
+    }
+  });
+
+  // The rewrite actions transform existing text, so they need a selection.
+  if (canUseAI && hasSelection) {
     menuItems.push({
       label: 'Make Shorter',
       click: () => {
