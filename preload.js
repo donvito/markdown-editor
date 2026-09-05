@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: () => ipcRenderer.invoke('open-file-dialog'),
   openFilePath: (filePath) => ipcRenderer.invoke('open-file-path', filePath),
   openFolder: () => ipcRenderer.invoke('open-folder-dialog'),
+  closeFolder: () => ipcRenderer.send('close-folder'),
+  onFolderChanged: (callback) => ipcRenderer.on('folder-changed', (event, data) => callback(data)),
   openFolderPath: (folderPath) => ipcRenderer.invoke('open-folder-path', folderPath),
   listFolderMarkdown: (folderPath) => ipcRenderer.invoke('list-folder-markdown', folderPath),
   onFolderOpened: (callback) => ipcRenderer.on('folder-opened', (event, data) => callback(data)),
