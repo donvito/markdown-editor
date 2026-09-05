@@ -300,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeFolder() {
+    window.electronAPI.closeFolder();
     currentFolder = null;
     localStorage.removeItem('lastFolderPath');
     folderSectionTitle.textContent = 'Folder';
@@ -392,6 +393,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.electronAPI.onFolderOpened((data) => {
     applyOpenedFolder(data);
+  });
+
+  window.electronAPI.onFolderChanged((data) => {
+    if (!currentFolder || currentFolder.folderPath !== data.folderPath) return;
+    currentFolder.files = data.files;
+    folderEmpty.style.display = data.files.length === 0 ? 'block' : 'none';
+    renderFolderList();
   });
 
   const lastFolderPath = localStorage.getItem('lastFolderPath');

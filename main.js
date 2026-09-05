@@ -8,6 +8,7 @@ const pluginManager = require('./src/main/plugin-manager');
 const { makeAIRequest, makeAIRequestStream } = require('./src/main/ai-service');
 const { initAutoUpdater, checkForUpdatesManual, installDownloadedUpdate } = require('./src/main/auto-updater');
 const fileWatcher = require('./src/main/file-watcher');
+const folderWatcher = require('./src/main/folder-watcher');
 const { listMarkdownFiles } = require('./src/main/folder-scanner');
 
 let streamIdCounter = 0;
@@ -108,6 +109,7 @@ function createWindow() {
     });
     activeStreams.clear();
     fileWatcher.closeAll();
+    folderWatcher.close();
   });
 
   const menu = Menu.buildFromTemplate([
@@ -227,6 +229,11 @@ function createWindow() {
 
 function emitFolderOpened(folderPath) {
   const canonical = path.resolve(folderPath);
+  folderWatcher.watch(canonical, (files) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('folder-changed', { folderPath: canonical, files });
+    }
+  });
   const files = listMarkdownFiles(canonical);
   const payload = {
     folderPath: canonical,
@@ -280,6 +287,7 @@ async function openFile() {
 // IPC Handlers
 ipcMain.handle('open-file-dialog', openFile);
 ipcMain.handle('open-folder-dialog', openFolder);
+ipcMain.on('close-folder', () => folderWatcher.close());
 
 ipcMain.handle('open-folder-path', (event, folderPath) => {
   try {
