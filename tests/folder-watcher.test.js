@@ -85,6 +85,29 @@ test('reports rename and delete operations', async () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('reports only confirmed identity renames', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'folder-watcher-identity-'));
+  fs.writeFileSync(path.join(root, 'before.md'), 'before');
+  const changes = [];
+  folderWatcher.watch(root, (files, metadata) => changes.push({ files, metadata }));
+
+  try {
+    fs.renameSync(path.join(root, 'before.md'), path.join(root, 'after.md'));
+    await waitFor(() => changes.some((change) => change.metadata?.renames?.length));
+    const rename = changes.find((change) => change.metadata?.renames?.length).metadata.renames[0];
+    assert.equal(rename.oldPath, path.join(root, 'before.md'));
+    assert.equal(rename.newPath, path.join(root, 'after.md'));
+
+    fs.writeFileSync(path.join(root, 'added.md'), 'added');
+    await waitFor(() => changes.some((change) => change.files.some((file) => file.path.endsWith('added.md'))));
+    const addition = changes.find((change) => change.files.some((file) => file.path.endsWith('added.md')));
+    assert.deepEqual(addition.metadata?.renames || [], []);
+  } finally {
+    folderWatcher.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('reports a case-only rename as a path change', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'folder-watcher-case-rename-'));
   fs.writeFileSync(path.join(root, 'lower.md'), 'before');

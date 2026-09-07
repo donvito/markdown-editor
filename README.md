@@ -33,6 +33,8 @@ If you like this project, please consider supporting it
 | `Cmd/Ctrl+2` | Editor |
 | `Cmd/Ctrl+3` | Split |
 | `Cmd/Ctrl+Shift+W` | Toggle wide mode |
+| `Cmd/Ctrl+F` | Find in the current view |
+| `Cmd/Ctrl+H` | Find and replace in the editor |
 | `Cmd/Ctrl+K` | Edit with AI |
 | `Cmd/Ctrl+,` | Settings |
 

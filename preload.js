@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showContextMenu: (data) => ipcRenderer.invoke('show-context-menu', data),
   onSetViewMode: (callback) => ipcRenderer.on('set-view-mode', (event, mode) => callback(mode)),
   onToggleWideView: (callback) => ipcRenderer.on('toggle-wide-view', () => callback()),
+  onFind: (callback) => ipcRenderer.on('find', () => callback()),
+  onFindAndReplace: (callback) => ipcRenderer.on('find-and-replace', () => callback()),
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', () => callback()),
   onOpenAISettings: (callback) => ipcRenderer.on('open-ai-settings', () => callback()),
   onEditorCut: (callback) => ipcRenderer.on('editor:cut', (event, data) => callback(data)),

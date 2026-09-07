@@ -129,6 +129,29 @@ function unwatch(filePath) {
   }
 }
 
+function moveWatch(oldPath, newPath) {
+  const watched = [];
+  let destinationWatched = false;
+  for (const entry of dirWatchers.values()) {
+    for (const set of entry.files.values()) {
+      for (const watchedPath of set) {
+        if (samePath(watchedPath, oldPath)) watched.push(watchedPath);
+        if (samePath(watchedPath, newPath) && !samePath(watchedPath, oldPath)) {
+          destinationWatched = true;
+        }
+      }
+    }
+  }
+  if (watched.length === 0 || destinationWatched) return false;
+  unwatch(oldPath);
+  const canonicalNew = canonicalize(newPath);
+  watch(canonicalNew);
+  // A rename can be followed immediately by an external write. Re-read the
+  // new path after moving the watcher so clean tabs do not retain stale data.
+  scheduleRead(path.dirname(canonicalNew), canonicalNew);
+  return true;
+}
+
 function closeDirWatcher(dir) {
   const entry = dirWatchers.get(dir);
   if (!entry) return;
@@ -212,6 +235,7 @@ module.exports = {
   setOnChange,
   watch,
   unwatch,
+  moveWatch,
   ignore,
   closeAll
 };

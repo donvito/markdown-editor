@@ -1302,6 +1302,7 @@ body.resizing * {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .editor-container.split-view .editor-content .pane {
@@ -4290,3 +4291,41 @@ body.dark .update-banner.error .update-banner-content {
 body.dark .update-dismiss-btn:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* Find panel */
+.search-panel {
+  position: absolute;
+  z-index: 20;
+  top: 42px;
+  right: 14px;
+  min-width: 330px;
+  padding: 8px;
+  border: 1px solid #c8c8c8;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .18);
+  color: #333;
+  font-size: 12px;
+}
+.search-panel.hidden { display: none; }
+.search-row { display: flex; align-items: center; gap: 5px; }
+.search-row input { min-width: 0; flex: 1; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; font: inherit; color: inherit; background: #fff; }
+.search-row input:focus { outline: 2px solid #8ab4f8; outline-offset: -1px; }
+.search-status { min-width: 52px; text-align: center; color: #777; white-space: nowrap; }
+.search-button, .search-close, .search-action { border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; color: inherit; cursor: pointer; padding: 5px 8px; }
+.search-button:hover, .search-close:hover, .search-action:hover { background: #e5e5e5; }
+.search-close { font-size: 17px; line-height: 16px; }
+.replace-row { margin-top: 6px; }
+.replace-row.hidden { display: none; }
+.search-action { white-space: nowrap; }
+.search-case { display: block; margin: 7px 2px 1px; color: #666; cursor: pointer; }
+.search-case input { vertical-align: middle; }
+.search-match { background: #ffe58f; color: inherit; border-radius: 2px; padding: 1px 0; }
+.search-match.active { background: #ff9f43; box-shadow: 0 0 0 1px #e67e22; }
+body.dark .search-panel { border-color: #555; background: #2b2b2b; color: #eee; }
+body.dark .search-row input { border-color: #666; background: #1f1f1f; color: #eee; }
+body.dark .search-button, body.dark .search-close, body.dark .search-action { border-color: #666; background: #3a3a3a; color: #eee; }
+body.dark .search-button:hover, body.dark .search-close:hover, body.dark .search-action:hover { background: #4b4b4b; }
+body.dark .search-status, body.dark .search-case { color: #bbb; }
+body.dark .search-match { background: #806b22; }
+body.dark .search-match.active { background: #b85f1b; }

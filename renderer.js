@@ -8,6 +8,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const previewPane = document.getElementById('preview-pane');
   const editor = document.getElementById('editor');
   const contentDiv = document.getElementById('content');
+  const searchPanel = document.getElementById('search-panel');
+  const searchInput = document.getElementById('search-input');
+  const replaceInput = document.getElementById('replace-input');
+  const searchStatus = document.getElementById('search-status');
+  const searchPrevious = document.getElementById('search-previous');
+  const searchNext = document.getElementById('search-next');
+  const searchClose = document.getElementById('search-close');
+  const replaceRow = document.getElementById('replace-row');
+  const replaceOne = document.getElementById('replace-one');
+  const replaceAll = document.getElementById('replace-all');
+  const searchMatchCase = document.getElementById('search-match-case');
+  const findBtn = document.getElementById('find-btn');
+  const replaceBtn = document.getElementById('replace-btn');
   const toggleGroup = document.getElementById('toggle-group');
   const editBtn = document.getElementById('edit-btn');
   const previewBtn = document.getElementById('preview-btn');
@@ -81,6 +94,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  function escapeRegExp(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // Initialize theme
@@ -397,9 +414,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.electronAPI.onFolderChanged((data) => {
     if (!currentFolder || currentFolder.folderPath !== data.folderPath) return;
-    currentFolder.files = data.files;
-    folderEmpty.style.display = data.files.length === 0 ? 'block' : 'none';
+    (data.renames || []).forEach(({ oldPath, newPath }) => {
+      const oldKey = findOpenPathExact(oldPath);
+      const targetKey = findOpenPathExact(newPath);
+      if (!oldKey || (targetKey && targetKey !== oldKey)) return;
+      if (oldKey === activeFilePath) saveCurrentFileState();
+      const fileData = openFiles.get(oldKey);
+      openFiles.delete(oldKey);
+      openFiles.set(newPath, fileData);
+      if (activeFilePath === oldKey) activeFilePath = newPath;
+    });
+    currentFolder.files = data.files || [];
+    folderEmpty.style.display = currentFolder.files.length === 0 ? 'block' : 'none';
     renderFolderList();
+    renderFileList();
+    renderTabs();
+    updateCurrentFilePath();
+    if (activeFilePath && openFiles.has(activeFilePath)) {
+      const activeData = openFiles.get(activeFilePath);
+      const activeName = getFileName(activeFilePath);
+      fileNameSpan.textContent = activeData.unsaved ? `${activeName} (unsaved)` : activeName;
+      document.title = `${activeName}${activeData.unsaved ? ' (unsaved)' : ''} - Markdown Editor`;
+    }
   });
 
   const lastFolderPath = localStorage.getItem('lastFolderPath');
@@ -1585,6 +1621,259 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   editor.addEventListener('focus', updateCursorPosition);
 
+  let searchContext = null;
+  let searchMatches = [];
+  let searchActive = 0;
+  let searchReplaceMode = false;
+  const previewBlockTags = new Set([
+    'address', 'article', 'aside', 'blockquote', 'dd', 'div', 'dl', 'dt',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
+    'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre',
+    'section', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul'
+  ]);
+
+  function clearPreviewSearch() {
+    contentDiv.querySelectorAll('.search-match').forEach((mark) => {
+      const parent = mark.parentNode;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+      parent.normalize();
+    });
+  }
+
+  function previewSearch() {
+    clearPreviewSearch();
+    const query = searchInput.value;
+    if (!query) {
+      searchMatches = [];
+      searchStatus.textContent = '';
+      return;
+    }
+    const flags = searchMatchCase.checked ? 'g' : 'gi';
+    const escaped = escapeRegExp(query);
+    const nodes = [];
+    const walker = document.createTreeWalker(contentDiv, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!node.nodeValue || !parent || parent.closest('script, style, .search-match, svg, [hidden], [aria-hidden="true"]')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let searchableText = '';
+    let previousBlock = null;
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      let block = node.parentElement;
+      while (block && block !== contentDiv && !previewBlockTags.has(block.tagName.toLowerCase())) {
+        block = block.parentElement;
+      }
+      if (nodes.length && block !== previousBlock) searchableText += '\n';
+      const start = searchableText.length;
+      searchableText += node.nodeValue;
+      nodes.push({ node, start, end: searchableText.length });
+      previousBlock = block;
+    }
+
+    const regex = new RegExp(escaped, flags);
+    const results = [];
+    const segments = [];
+    let match;
+    while ((match = regex.exec(searchableText))) {
+      const matchStart = match.index;
+      const matchEnd = matchStart + match[0].length;
+      const result = { marks: [] };
+      nodes.forEach((nodeInfo) => {
+        const start = Math.max(matchStart, nodeInfo.start);
+        const end = Math.min(matchEnd, nodeInfo.end);
+        if (start < end) {
+          const segment = {
+            result,
+            node: nodeInfo.node,
+            start: start - nodeInfo.start,
+            end: end - nodeInfo.start,
+            documentStart: start,
+            mark: null
+          };
+          result.marks.push(segment);
+          segments.push(segment);
+        }
+      });
+      if (result.marks.length) results.push(result);
+      if (!match[0].length) regex.lastIndex++;
+    }
+
+    // Wrap from the end of the document so offsets in untouched text nodes
+    // remain valid. A result can contain several marks when the query spans
+    // inline markup such as <strong> or <a>.
+    segments.sort((left, right) => right.documentStart - left.documentStart);
+    segments.forEach((segment) => {
+      const range = document.createRange();
+      range.setStart(segment.node, segment.start);
+      range.setEnd(segment.node, segment.end);
+      const mark = document.createElement('mark');
+      mark.className = 'search-match';
+      try {
+        range.surroundContents(mark);
+        segment.mark = mark;
+      } catch (error) {
+        // A malformed/unsupported DOM fragment should not make search fail
+        // for the rest of the preview.
+        console.warn('Unable to highlight preview search result:', error);
+      }
+    });
+
+    searchMatches = results
+      .map((result) => ({
+        marks: result.marks
+          .filter((segment) => segment.mark)
+          .sort((left, right) => left.documentStart - right.documentStart)
+          .map((segment) => segment.mark)
+      }))
+      .filter((result) => result.marks.length);
+    if (searchActive >= searchMatches.length) searchActive = 0;
+    searchMatches.forEach((result, index) => {
+      result.marks.forEach((mark) => mark.classList.toggle('active', index === searchActive));
+    });
+    searchStatus.textContent = searchMatches.length ? `${searchActive + 1} of ${searchMatches.length}` : 'No matches';
+    const activeResult = searchMatches[searchActive];
+    if (activeResult?.marks[0]) activeResult.marks[0].scrollIntoView({ block: 'nearest' });
+  }
+
+  function editorSearch(focusEditor = false, selectMatch = true) {
+    const query = searchInput.value;
+    const text = editor.value;
+    searchMatches = [];
+    if (query) {
+      const flags = searchMatchCase.checked ? 'g' : 'gi';
+      const regex = new RegExp(escapeRegExp(query), flags);
+      let match;
+      while ((match = regex.exec(text))) {
+        searchMatches.push({ start: match.index, end: match.index + match[0].length });
+        if (!match[0].length) regex.lastIndex++;
+      }
+    }
+    if (searchActive >= searchMatches.length) searchActive = 0;
+    searchStatus.textContent = searchMatches.length ? `${searchActive + 1} of ${searchMatches.length}` : (query ? 'No matches' : '');
+    const active = searchMatches[searchActive];
+    if (active && selectMatch) {
+      if (focusEditor) editor.focus();
+      editor.setSelectionRange(active.start, active.end);
+    }
+  }
+
+  function refreshSearch(focusEditor = false, selectEditorMatch = true) {
+    if (searchContext === 'preview') previewSearch();
+    if (searchContext === 'editor') editorSearch(focusEditor, selectEditorMatch);
+  }
+
+  function updateSearchButtons() {
+    const hasOpenFile = Boolean(activeFilePath && openFiles.has(activeFilePath));
+    findBtn.style.display = hasOpenFile ? 'flex' : 'none';
+    replaceBtn.style.display = hasOpenFile && currentViewMode !== 'preview' ? 'flex' : 'none';
+  }
+
+  function openSearch(replace = false) {
+    if (!activeFilePath || !openFiles.has(activeFilePath)) return;
+    const context = currentViewMode === 'preview' ? 'preview' : 'editor';
+    if (!replace && !searchPanel.classList.contains('hidden')) {
+      searchInput.focus();
+      searchInput.select();
+      return;
+    }
+    if (replace && context !== 'editor') return;
+    searchContext = context;
+    searchReplaceMode = replace;
+    replaceRow.classList.toggle('hidden', !searchReplaceMode || context !== 'editor');
+    searchPanel.classList.remove('hidden');
+    if (context === 'editor' && !searchInput.value && editor.selectionStart !== editor.selectionEnd) {
+      searchInput.value = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+    }
+    searchActive = 0;
+    searchInput.focus();
+    searchInput.select();
+    refreshSearch();
+  }
+
+  function closeSearch() {
+    searchPanel.classList.add('hidden');
+    clearPreviewSearch();
+    searchContext = null;
+    searchMatches = [];
+    searchReplaceMode = false;
+  }
+
+  function moveSearch(direction) {
+    if (!searchMatches.length) return;
+    searchActive = (searchActive + direction + searchMatches.length) % searchMatches.length;
+    refreshSearch(true);
+  }
+
+  function replaceCurrent() {
+    if (searchContext !== 'editor') return;
+    editorSearch(false, false);
+    if (!searchMatches.length) return;
+    const match = searchMatches[searchActive];
+    const replacement = replaceInput.value;
+    const nextStart = match.start + replacement.length;
+
+    editor.focus();
+    editor.setSelectionRange(match.start, match.end);
+    const originalValue = editor.value;
+    const didInsert = document.execCommand('insertText', false, replacement);
+    if (!didInsert || editor.value === originalValue) {
+      editor.value = originalValue.slice(0, match.start) + replacement + originalValue.slice(match.end);
+    }
+    editor.setSelectionRange(nextStart, nextStart);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Recompute after the edit and move to the next match after the inserted
+    // text. This skips a newly inserted occurrence when the replacement itself
+    // contains the search term, while still wrapping to the first match.
+    editorSearch(false, false);
+    const nextIndex = searchMatches.findIndex((candidate) => candidate.start >= nextStart);
+    searchActive = nextIndex === -1 ? 0 : nextIndex;
+    refreshSearch(false, true);
+  }
+
+  function replaceEveryMatch() {
+    if (searchContext !== 'editor') return;
+    editorSearch(false, false);
+    if (!searchMatches.length) return;
+    const replacement = replaceInput.value;
+    const originalValue = editor.value;
+    let value = originalValue;
+    for (let i = searchMatches.length - 1; i >= 0; i--) {
+      const match = searchMatches[i];
+      value = value.slice(0, match.start) + replacement + value.slice(match.end);
+    }
+
+    // Replace the whole document in one native edit transaction so Undo can
+    // restore the pre-replace-all content in a single step.
+    editor.focus();
+    editor.setSelectionRange(0, originalValue.length);
+    const didInsert = document.execCommand('insertText', false, value);
+    if (!didInsert) editor.value = value;
+    editor.setSelectionRange(0, 0);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    searchActive = 0;
+    refreshSearch(false, true);
+  }
+
+  searchInput.addEventListener('input', () => { searchActive = 0; refreshSearch(false, true); });
+  replaceInput.addEventListener('input', () => refreshSearch(false, false));
+  searchMatchCase.addEventListener('change', () => { searchActive = 0; refreshSearch(false, true); });
+  searchPrevious.addEventListener('click', () => moveSearch(-1));
+  searchNext.addEventListener('click', () => moveSearch(1));
+  searchClose.addEventListener('click', closeSearch);
+  replaceOne.addEventListener('click', replaceCurrent);
+  replaceAll.addEventListener('click', replaceEveryMatch);
+  findBtn.addEventListener('click', () => openSearch(false));
+  replaceBtn.addEventListener('click', () => openSearch(true));
+  window.electronAPI.onFind(() => openSearch(false));
+  window.electronAPI.onFindAndReplace(() => openSearch(true));
+
   function setViewMode(mode, persist = true) {
     if (!VIEW_MODES.includes(mode)) {
       mode = 'preview';
@@ -1623,6 +1912,14 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('defaultViewMode', mode);
       document.dispatchEvent(new CustomEvent('view-mode-changed', { detail: { mode } }));
     }
+    if (!searchPanel.classList.contains('hidden')) {
+      searchContext = mode === 'preview' ? 'preview' : 'editor';
+      replaceRow.classList.toggle('hidden', !searchReplaceMode || searchContext !== 'editor');
+      if (searchContext === 'editor') clearPreviewSearch();
+      searchActive = 0;
+      refreshSearch();
+    }
+    updateSearchButtons();
   }
 
   // Initialize mermaid for diagram rendering
@@ -1634,7 +1931,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  let previewRenderToken = 0;
   function updatePreview() {
+    const renderToken = ++previewRenderToken;
     const fileData = openFiles.get(activeFilePath);
     if (fileData) {
       // Strip frontmatter (YAML between --- markers at the start)
@@ -1642,17 +1941,21 @@ document.addEventListener('DOMContentLoaded', () => {
       content = content.replace(frontmatterRegex, '');
 
       window.electronAPI.parseMarkdown(content).then((html) => {
+        if (renderToken !== previewRenderToken) return;
         contentDiv.innerHTML = html;
-        renderMermaidDiagrams();
+        clearPreviewSearch();
+        Promise.resolve(renderMermaidDiagrams()).then(() => {
+          if (renderToken === previewRenderToken && searchContext === 'preview') previewSearch();
+        });
       });
     }
   }
 
   function renderMermaidDiagrams() {
-    if (typeof mermaid === 'undefined') return;
+    if (typeof mermaid === 'undefined') return Promise.resolve();
     // Mermaid code blocks are rendered as <pre><code class="hljs language-mermaid">...</code></pre>
     const mermaidCodes = contentDiv.querySelectorAll('code.language-mermaid');
-    if (mermaidCodes.length === 0) return;
+    if (mermaidCodes.length === 0) return Promise.resolve();
 
     const mermaidNodes = [];
     mermaidCodes.forEach((codeEl, i) => {
@@ -1666,7 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
       mermaidNodes.push(mermaidPre);
     });
 
-    mermaid.run({ nodes: mermaidNodes }).then(() => {
+    return mermaid.run({ nodes: mermaidNodes }).then(() => {
       // Add click-to-zoom on rendered diagrams
       mermaidNodes.forEach((node) => {
         node.style.cursor = 'pointer';
@@ -2084,6 +2387,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
+  function findOpenPathExact(filePath) {
+    if (!filePath) return null;
+    if (openFiles.has(filePath)) return filePath;
+    const target = String(filePath).replace(/\\/g, '/');
+    for (const key of openFiles.keys()) {
+      if (String(key).replace(/\\/g, '/') === target) return key;
+    }
+    return null;
+  }
+
   function applyDiskContent(filePath, content) {
     const file = openFiles.get(filePath);
     if (!file || file.unsaved || isUntitledFile(filePath)) return false;
@@ -2111,6 +2424,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateWordCount();
       renderOutline();
       syncLineNumbersScroll();
+      if (searchContext === 'editor') refreshSearch(false, true);
     }
 
     return true;
@@ -2118,6 +2432,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function switchToFile(filePath) {
     if (!openFiles.has(filePath)) return;
+
+    closeSearch();
 
     // Close any open AI panels to prevent inserting into wrong file
     document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
@@ -2149,6 +2465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTabs();
     renderOutline();
     updateCurrentFilePath();
+    updateSearchButtons();
   }
 
   // Close a file
@@ -2177,6 +2494,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (openFiles.size === 0) {
       // No more files open
+      closeSearch();
+      previewRenderToken++;
       activeFilePath = null;
       welcomeDiv.style.display = 'flex';
       editorContainer.style.display = 'none';
@@ -2188,6 +2507,7 @@ document.addEventListener('DOMContentLoaded', () => {
       contentDiv.innerHTML = '';
       renderOutline();
       updateCurrentFilePath();
+      updateSearchButtons();
     } else if (filePath === activeFilePath) {
       // Switch to another file
       const nextFile = openFiles.keys().next().value;
@@ -2225,6 +2545,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openFile(filePath, content) {
+    closeSearch();
     const existingPath = findOpenPath(filePath);
     if (existingPath) {
       applyDiskContent(existingPath, content);
@@ -2275,9 +2596,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTabs();
     renderOutline();
     updateCurrentFilePath();
+    updateSearchButtons();
   }
 
   function newFile() {
+    closeSearch();
     // Close any open AI panels to prevent inserting into wrong file
     document.dispatchEvent(new CustomEvent('plugin:close-inline-diff'));
     document.dispatchEvent(new CustomEvent('plugin:close-inline-prompt'));
@@ -2330,6 +2653,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTabs();
     renderOutline();
     updateCurrentFilePath();
+    updateSearchButtons();
 
     editor.focus();
   }
@@ -2353,6 +2677,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLineNumbers();
     updateCursorPosition();
     updateWordCount();
+    // Recompute editor matches without selecting one. Selecting here would
+    // interrupt normal typing by moving the textarea selection after each
+    // character.
+    if (searchContext === 'editor') refreshSearch(false, false);
 
     if (isStreaming) {
       // Throttle updates during streaming for smoother preview
@@ -2523,6 +2851,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      openSearch(false);
+      return;
+    }
+    if (mod && e.key.toLowerCase() === 'h') {
+      if (currentViewMode !== 'preview') {
+        e.preventDefault();
+        openSearch(true);
+      }
+      return;
+    }
+    if (e.key === 'Escape' && !searchPanel.classList.contains('hidden')) {
+      e.preventDefault();
+      closeSearch();
+      return;
+    }
     // Ctrl+S to save
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault();

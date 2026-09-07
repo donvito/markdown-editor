@@ -70,6 +70,22 @@ function handleClose() {
   return false;
 }
 
+function sameFilePath(a, b) {
+  const left = path.normalize(a);
+  const right = path.normalize(b);
+  return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+function moveTrackedFile(oldPath, newPath) {
+  const moved = fileWatcher.moveWatch(oldPath, newPath);
+  if (!moved) return;
+  const trackedPath = [...unsavedFiles.keys()].find((candidate) => sameFilePath(candidate, oldPath));
+  if (trackedPath) {
+    unsavedFiles.delete(trackedPath);
+    unsavedFiles.set(newPath, path.basename(newPath));
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -185,6 +201,17 @@ function createWindow() {
         { role: 'undo' },
         { role: 'redo' },
         { type: 'separator' },
+        {
+          label: 'Find',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => mainWindow.webContents.send('find')
+        },
+        {
+          label: 'Find and Replace',
+          accelerator: 'CmdOrCtrl+H',
+          click: () => mainWindow.webContents.send('find-and-replace')
+        },
+        { type: 'separator' },
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
@@ -228,10 +255,17 @@ function createWindow() {
 }
 
 function emitFolderOpened(folderPath) {
-  const canonical = path.resolve(folderPath);
-  folderWatcher.watch(canonical, (files) => {
+  const canonical = fileWatcher.canonicalize(folderPath);
+  folderWatcher.watch(canonical, (files, change) => {
+    (change?.renames || []).forEach(({ oldPath, newPath }) => {
+      moveTrackedFile(oldPath, newPath);
+    });
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('folder-changed', { folderPath: canonical, files });
+      mainWindow.webContents.send('folder-changed', {
+        folderPath: canonical,
+        files,
+        renames: change?.renames || []
+      });
     }
   });
   const files = listMarkdownFiles(canonical);
