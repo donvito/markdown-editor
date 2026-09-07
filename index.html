@@ -98,6 +98,20 @@
             </button>
             <button id="fmt-codeblock" class="fmt-btn-inline" title="Code Block">{}</button>
           </div>
+          <button id="find-btn" class="toolbar-icon-btn" title="Find (Ctrl+F)" aria-label="Find" style="display: none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="20" y1="20" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+          <button id="replace-btn" class="toolbar-icon-btn" title="Find and Replace (Ctrl+H)" aria-label="Find and Replace" style="display: none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+          </button>
         </div>
         <span id="file-name" style="display: none;"></span>
       </div>
@@ -182,6 +196,21 @@
         </div>
         <div id="editor-container" class="editor-container" style="display: none;">
           <div id="tabs-bar" class="tabs-bar"></div>
+          <div id="search-panel" class="search-panel hidden" role="dialog" aria-label="Find">
+            <div class="search-row">
+              <input id="search-input" type="search" placeholder="Find" aria-label="Find" autocomplete="off">
+              <span id="search-status" class="search-status" aria-live="polite"></span>
+              <button id="search-previous" class="search-button" type="button" title="Previous match">&#9650;</button>
+              <button id="search-next" class="search-button" type="button" title="Next match">&#9660;</button>
+              <button id="search-close" class="search-close" type="button" title="Close (Esc)">&times;</button>
+            </div>
+            <div id="replace-row" class="search-row replace-row hidden">
+              <input id="replace-input" type="text" placeholder="Replace" aria-label="Replace" autocomplete="off">
+              <button id="replace-one" class="search-action" type="button">Replace</button>
+              <button id="replace-all" class="search-action" type="button">Replace All</button>
+            </div>
+            <label class="search-case"><input id="search-match-case" type="checkbox"> Match case</label>
+          </div>
           <div class="editor-content">
             <div id="editor-pane" class="pane editor-pane" style="display: none;">
               <div class="editor-wrapper">

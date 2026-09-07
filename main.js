@@ -201,6 +201,17 @@ function createWindow() {
         { role: 'undo' },
         { role: 'redo' },
         { type: 'separator' },
+        {
+          label: 'Find',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => mainWindow.webContents.send('find')
+        },
+        {
+          label: 'Find and Replace',
+          accelerator: 'CmdOrCtrl+H',
+          click: () => mainWindow.webContents.send('find-and-replace')
+        },
+        { type: 'separator' },
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
