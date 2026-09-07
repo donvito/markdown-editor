@@ -1,4 +1,5 @@
 # Codex project instructions
+
 When delegating to Luna, always announce each spawned Luna agent and its task before continuing. After completion, identify which Luna agent produced each result.
 
 For complex coding tasks, use the `astra-orchestrator` skill when its trigger conditions match.

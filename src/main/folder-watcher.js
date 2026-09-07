@@ -20,6 +20,62 @@ function listingHasSamePaths(previous, next) {
   return next.every((file) => previousPaths.has(file.path));
 }
 
+function fileIdentity(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    // Zero inode/device values are not useful for identifying a rename.
+    if (!stat.ino) return null;
+    return `${stat.dev}:${stat.ino}`;
+  } catch {
+    return null;
+  }
+}
+
+function snapshotIdentities(files) {
+  const snapshot = new Map();
+  files.forEach((file) => {
+    const identity = fileIdentity(file.path);
+    if (identity) snapshot.set(file.path, identity);
+  });
+  return snapshot;
+}
+
+function confirmedRenames(previousSnapshot, nextSnapshot, previousFiles, nextFiles) {
+  const removedByIdentity = new Map();
+  const addedByIdentity = new Map();
+  const previousCounts = new Map();
+  const nextCounts = new Map();
+  previousSnapshot.forEach((identity) => previousCounts.set(identity, (previousCounts.get(identity) || 0) + 1));
+  nextSnapshot.forEach((identity) => nextCounts.set(identity, (nextCounts.get(identity) || 0) + 1));
+  const nextPaths = new Set(nextFiles.map((file) => file.path));
+  const previousPaths = new Set(previousFiles.map((file) => file.path));
+
+  previousSnapshot.forEach((identity, filePath) => {
+    if (!nextPaths.has(filePath)) {
+      if (!removedByIdentity.has(identity)) removedByIdentity.set(identity, []);
+      removedByIdentity.get(identity).push(filePath);
+    }
+  });
+  nextSnapshot.forEach((identity, filePath) => {
+    if (!previousPaths.has(filePath)) {
+      if (!addedByIdentity.has(identity)) addedByIdentity.set(identity, []);
+      addedByIdentity.get(identity).push(filePath);
+    }
+  });
+
+  const renames = [];
+  removedByIdentity.forEach((oldPaths, identity) => {
+    const newPaths = addedByIdentity.get(identity) || [];
+    // Require a one-to-one identity match. This avoids guessing when hard
+    // links or duplicate scanner entries make an identity ambiguous.
+    if (oldPaths.length === 1 && newPaths.length === 1 &&
+        previousCounts.get(identity) === 1 && nextCounts.get(identity) === 1) {
+      renames.push({ oldPath: oldPaths[0], newPath: newPaths[0] });
+    }
+  });
+  return renames;
+}
+
 function rootIdentity(folderPath) {
   try {
     const stat = fs.statSync(folderPath);
@@ -71,10 +127,15 @@ function scanAndNotify(session) {
 
   const files = listMarkdownFiles(session.folderPath);
   if (!isActive(session)) return;
-  if (listingHasSamePaths(session.files, files)) return;
-
+  const nextIdentities = snapshotIdentities(files);
+  if (listingHasSamePaths(session.files, files)) {
+    session.identities = nextIdentities;
+    return;
+  }
+  const renames = confirmedRenames(session.identities, nextIdentities, session.files, files);
   session.files = files;
-  session.callback(files);
+  session.identities = nextIdentities;
+  session.callback(files, renames.length ? { renames } : undefined);
 }
 
 function scheduleScan(session) {
@@ -113,6 +174,7 @@ function watch(folderPath, callback) {
     folderPath: path.resolve(folderPath),
     callback,
     files: [],
+    identities: new Map(),
     rootIdentity: null,
     watcher: null,
     debounceTimer: null,
@@ -122,6 +184,7 @@ function watch(folderPath, callback) {
   activeSession = session;
   session.rootIdentity = rootIdentity(session.folderPath);
   session.files = listMarkdownFiles(session.folderPath);
+  session.identities = snapshotIdentities(session.files);
 
   attachNativeWatcher(session);
 

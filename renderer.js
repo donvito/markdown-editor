@@ -397,9 +397,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.electronAPI.onFolderChanged((data) => {
     if (!currentFolder || currentFolder.folderPath !== data.folderPath) return;
-    currentFolder.files = data.files;
-    folderEmpty.style.display = data.files.length === 0 ? 'block' : 'none';
+    (data.renames || []).forEach(({ oldPath, newPath }) => {
+      const oldKey = findOpenPathExact(oldPath);
+      const targetKey = findOpenPathExact(newPath);
+      if (!oldKey || (targetKey && targetKey !== oldKey)) return;
+      if (oldKey === activeFilePath) saveCurrentFileState();
+      const fileData = openFiles.get(oldKey);
+      openFiles.delete(oldKey);
+      openFiles.set(newPath, fileData);
+      if (activeFilePath === oldKey) activeFilePath = newPath;
+    });
+    currentFolder.files = data.files || [];
+    folderEmpty.style.display = currentFolder.files.length === 0 ? 'block' : 'none';
     renderFolderList();
+    renderFileList();
+    renderTabs();
+    updateCurrentFilePath();
+    if (activeFilePath && openFiles.has(activeFilePath)) {
+      const activeData = openFiles.get(activeFilePath);
+      const activeName = getFileName(activeFilePath);
+      fileNameSpan.textContent = activeData.unsaved ? `${activeName} (unsaved)` : activeName;
+      document.title = `${activeName}${activeData.unsaved ? ' (unsaved)' : ''} - Markdown Editor`;
+    }
   });
 
   const lastFolderPath = localStorage.getItem('lastFolderPath');
@@ -2080,6 +2099,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = normalizePathKey(filePath);
     for (const key of openFiles.keys()) {
       if (normalizePathKey(key) === target) return key;
+    }
+    return null;
+  }
+
+  function findOpenPathExact(filePath) {
+    if (!filePath) return null;
+    if (openFiles.has(filePath)) return filePath;
+    const target = String(filePath).replace(/\\/g, '/');
+    for (const key of openFiles.keys()) {
+      if (String(key).replace(/\\/g, '/') === target) return key;
     }
     return null;
   }
